@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 
 import { MessageSquare, Heart, Share2, Loader2 } from "lucide-react";
-import { motion } from "motion/react";
+import { motion } from "framer-motion";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { getProfileColor, getTimeAgo } from "../../typescriptfile/utils";
 
@@ -94,7 +94,7 @@ const PostsList = ({
               {post.react_count || 0}
             </button>
             <button
-              onClick={() => navigate(`/post/${post.id}`)}
+              onClick={() => navigate.push(`/post/${post.id}`)}
               className="flex items-center gap-2 text-xs font-black text-gray-400 hover:text-blue-600 transition-colors"
             >
               <MessageSquare size={18} /> {post.comment_count || 0}
