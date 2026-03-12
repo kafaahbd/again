@@ -17,8 +17,25 @@ export const metadata = {
 	manifest: "https://study.kafaahbd.com/site.webmanifest", // এই লাইনটি গুরুত্বপূর্ণ
 	themeColor: "#fff",
 	icons: {
-		apple: "https://study.kafaahbd.com/apple-touch-icon.png", // যদি থাকে
+		icon: [
+            { url: "/favicon.ico" }, // ডিফল্ট ফেভিকন
+            { url: "/favicon-16.png", sizes: "16x16", type: "image/png" },
+            { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+            { url: "/favicon-48.png", sizes: "48x48", type: "image/png" },
+            { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+            { url: "/icon.png", sizes: "512x512", type: "image/png" },
+        ],
+		apple: [
+            { url: "/apple-touch-icon.png" },
+        ],
+        other: [
+            {
+                rel: 'apple-touch-icon-precomposed',
+                url: '/apple-touch-icon.png',
+            },
+        ],
 	},
+	
 };
 
 export default function RootLayout({
