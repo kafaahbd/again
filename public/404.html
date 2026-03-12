@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Kafa'ah Study Platform - প্রযুক্তির মাধ্যমে শিক্ষা</title>
+
+    <!-- Open Graph / Facebook (আপনার দেয়া মেটা ট্যাগ) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://study.kafaahbd.com/" />
+    <meta property="og:title" content="Kafa'ah Study - অনলাইন এক্সাম ও লার্নিং প্ল্যাটফর্ম" />
+    <meta property="og:description" content="SSC, HSC ও Admission পরীক্ষার্থীদের জন্য মানসম্মত অনলাইন পরীক্ষা এবং শিক্ষা সহায়িকা ইনশাআল্লাহ।" />
+    <meta property="og:image" content="https://study.kafaahbd.com/stufy.jpg" />
+    <meta property="og:image:secure_url" content="https://study.kafaahbd.com/stufy.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Kafa'ah Study Platform" />
+    <meta name="twitter:description" content="প্রযুক্তির মাধ্যমে উম্মাহর সেবায় শিক্ষা প্ল্যাটফর্ম।" />
+    <meta name="twitter:image" content="https://study.kafaahbd.com/stufy.jpg" />
+
+    <!-- SPA Redirect Script (GitHub Pages) - স্ট্যান্ডার্ড ভার্সন -->
+    <script>
+      (function(l) {
+        if (l.search) {
+          var q = {};
+          l.search.slice(1).split('&').forEach(function(v) {
+            var a = v.split('=');
+            q[a[0]] = a.slice(1).join('=').replace(/~and~/g, '&');
+          });
+          if (q.p !== undefined) {
+            window.history.replaceState(null, null,
+              l.pathname.slice(0, -1) + (q.p || '') +
+              (q.q ? '?' + q.q : '') +
+              l.hash
+            );
+          }
+        }
+      }(window.location));
+    </script>
+  </head>
+  <body>
+    <div style="text-align: center; margin-top: 50px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333;">
+        <h1 style="color: #10b981;">Redirecting to Study Platform...</h1>
+        <p>অনুগ্রহ করে অপেক্ষা করুন, আপনাকে সঠিক পেজে নিয়ে যাওয়া হচ্ছে।</p>
+    </div>
+    <!-- 404-এর পর রিডাইরেক্ট: index.html?p=/exam/ssc-2026&q=... ফর্ম্যাটে -->
+    <script>
+      (function() {
+        var pathSegmentsToKeep = 0; // কাস্টম ডোমেইনের জন্য 0, সাবডিরেক্টরির জন্য 1
+        var l = window.location;
+        var repoPath = l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/');
+        var redirectUrl = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') + repoPath +
+                          '/?p=/' + l.pathname.slice(1 + pathSegmentsToKeep).replace(/\//g, '~and~') +
+                          (l.search ? '&q=' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+                          l.hash;
+        l.replace(redirectUrl);
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,7 @@
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: *
+Allow: /
+
+Sitemap: https://study.kafaahbd.com/sitemap.xml
