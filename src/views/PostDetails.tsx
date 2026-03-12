@@ -15,6 +15,9 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { getProfileColor, getTimeAgo } from '../typescriptfile/utils';
 
 const PostDetails: React.FC = () => {
+
+   const {t} = useLanguage()
+
   const { postId } = useParams<{ postId: string }>() as { postId: string };
   const navigate = useRouter();
   const { user } = useAuth();
@@ -89,7 +92,7 @@ const PostDetails: React.FC = () => {
   const mainComments = post.comments?.filter((c: any) => !c.parent_id) || [];
   const getReplies = (parentCommentId: string) => post.comments?.filter((c: any) => c.parent_id === parentCommentId) || [];
 
-  const {t} = useLanguage()
+ 
 
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0b1222] transition-colors duration-500">
@@ -107,7 +110,7 @@ const PostDetails: React.FC = () => {
 
         {/* Back Button */}
         <button 
-          onClick={() => navigate.back} 
+          onClick={() => navigate.back()} 
           className="group flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-6 font-black text-[11px] tracking-widest uppercase bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 rounded-full border border-emerald-100 dark:border-emerald-800/30 transition-all"
         >
           <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" /> {t("study.back") || "Back to Forum"}

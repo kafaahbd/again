@@ -7,7 +7,7 @@ const Footer: React.FC = () => {
   const { lang } = useLanguage();
 
   return (
-    <footer className="relative overflow-hidden bg-white dark:bg-[#0a0f1a] border-t border-gray-100 dark:border-white/5 py-10">
+    <footer className="relative overflow-hidden bg-white dark:bg-[#0a0f1a] border-t border-gray-100 dark:border-white/5 py-10 z-0">
       {/* Subtle Islamic Geometric Pattern Overlay (Optional) */}
       <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none select-none" 
            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0l5.878 18.09h19.022l-15.39 11.18 5.878 18.09L30 36.18l-15.39 11.18 5.878-18.09-15.39-11.18h19.022L30 0z' fill='%239ca3af' fill-opacity='0.4' fill-rule='evenodd'/%3E%3C/svg%3E")` }}>

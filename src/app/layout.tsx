@@ -10,27 +10,33 @@ import ClientLayout from "./ClientLayout";
 
 const inter = Inter({ subsets: ["latin"] });
 
-export const metadata: Metadata = {
-  title: "Study Kafaah",
-  description: "Study Kafaah - Learning Platform",
+// app/layout.tsx
+export const metadata = {
+	title: "Study Corner",
+	description: "Kafaah Study Corner",
+	manifest: "https://study.kafaahbd.com/site.webmanifest", // এই লাইনটি গুরুত্বপূর্ণ
+	themeColor: "#fff",
+	icons: {
+		apple: "https://study.kafaahbd.com/apple-touch-icon.png", // যদি থাকে
+	},
 };
 
 export default function RootLayout({
-  children,
+	children,
 }: Readonly<{
-  children: React.ReactNode;
+	children: React.ReactNode;
 }>) {
-  return (
-    <html lang="en">
-      <body className={inter.className}>
-        <ThemeProvider>
-          <LanguageProvider>
-            <AuthProvider>
-              <ClientLayout>{children}</ClientLayout>
-            </AuthProvider>
-          </LanguageProvider>
-        </ThemeProvider>
-      </body>
-    </html>
-  );
+	return (
+		<html lang="en">
+			<body className={inter.className}>
+				<ThemeProvider>
+					<LanguageProvider>
+						<AuthProvider>
+							<ClientLayout>{children}</ClientLayout>
+						</AuthProvider>
+					</LanguageProvider>
+				</ThemeProvider>
+			</body>
+		</html>
+	);
 }
