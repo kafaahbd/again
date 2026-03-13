@@ -92,6 +92,10 @@ export const subjectChapters: SubjectChapters = {
 				name: "বাংলা ১ম পত্র পদ্য : ঋতু বর্ণন",
 				url: "https://raw.githubusercontent.com/kafaahbd/nothing/refs/heads/main/hsc_bangla_1st_paper_ritubornon.json",
 			},
+			{
+				name: "বাংলা ১ম পত্র উপন্যাস : লালসালু",
+				url: "https://raw.githubusercontent.com/kafaahbd/Question/refs/heads/main/Lalsalu.json",
+			},
 			{ name: "বাংলা ২য় পত্র অধ্যায় ১", url: "#" },
 		],
 		english: [
@@ -151,7 +155,7 @@ export const subjectChapters: SubjectChapters = {
 			},
 			{
 				name: "পদার্থ ১ম পত্র অধ্যায়  ৬",
-				url: "https://raw.githubusercontent.com/kafaahbd/Question/refs/heads/main/Physics_6_hsc_1st",
+				url: "https://raw.githubusercontent.com/kafaahbd/Question/refs/heads/main/Physics_6_hsc_1st.json",
 			},
 			// অন্যান্য অধ্যায়
 		],
