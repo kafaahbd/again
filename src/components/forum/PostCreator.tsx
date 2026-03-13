@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-
+import { useAuth } from "../../contexts/AuthContext";
 import { Send } from "lucide-react";
 import { getProfileColor } from "../../typescriptfile/utils";
 import { motion } from "framer-motion";
@@ -13,11 +13,20 @@ interface PostCreatorProps {
 
 const PostCreator = ({ userName, userProfileColor, placeholder }: PostCreatorProps) => {
   const navigate = useRouter();
+  const { user } = useAuth();
   const initial = userName?.[0]?.toUpperCase() || "?";
+
+  const handleClick = () => {
+    if (!user) {
+      navigate.push("/login");
+    } else {
+      navigate.push("/create-post");
+    }
+  };
 
   return (
     <motion.div
-      onClick={() => navigate.push("/create-post")}
+      onClick={handleClick}
       className="bg-white dark:bg-gray-800 rounded-2xl md:rounded-[35px] shadow-sm border border-gray-200 dark:border-gray-700 p-3 md:p-4 mb-5 md:mb-8 cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-all"
     >
       <div className="flex gap-3 md:gap-4 items-center">

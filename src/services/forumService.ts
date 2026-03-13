@@ -1,21 +1,7 @@
-import axios from "axios";
+import api from "./api";
 
 // .env ফাইল থেকে API URL নেওয়া (Vite প্রজেক্টের জন্য)
-const API_URL = process.env.NEXT_PUBLIC_API_URL + "/forum";
-
-/**
- * Authorization Header তৈরির জন্য হেল্পার ফাংশন
- * এটি প্রতিবার রিকোয়েস্ট পাঠানোর সময় লেটেস্ট টোকেনটি সংগ্রহ করবে।
- */
-const getAuthHeader = () => {
-  const token = localStorage.getItem("token");
-  return {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  };
-};
+const API_URL = "/forum";
 
 export const forumService = {
   /**
@@ -29,8 +15,7 @@ export const forumService = {
       batch: batch || "All",
     };
 
-    const response = await axios.get(`${API_URL}/posts`, {
-      ...getAuthHeader(),
+    const response = await api.get(`${API_URL}/posts`, {
       params,
     });
     return response.data;
@@ -40,10 +25,9 @@ export const forumService = {
    * ২. নতুন পোস্ট তৈরি করা
    */
   createPost: async (content: string, category: string, batch: string) => {
-    const response = await axios.post(
+    const response = await api.post(
       `${API_URL}/posts`,
-      { content, category, batch },
-      getAuthHeader()
+      { content, category, batch }
     );
     return response.data;
   },
@@ -52,9 +36,8 @@ export const forumService = {
    * ৩. পোস্ট ডিলিট করা
    */
   deletePost: async (postId: string) => {
-    const response = await axios.delete(
-      `${API_URL}/posts/${postId}`, 
-      getAuthHeader()
+    const response = await api.delete(
+      `${API_URL}/posts/${postId}`
     );
     return response.data;
   },
@@ -63,9 +46,8 @@ export const forumService = {
    * ৪. একটি নির্দিষ্ট পোস্টের ডিটেইলস এবং কমেন্ট দেখা
    */
   getPostById: async (postId: string) => {
-    const response = await axios.get(
-      `${API_URL}/posts/${postId}`,
-      getAuthHeader()
+    const response = await api.get(
+      `${API_URL}/posts/${postId}`
     );
     return response.data;
   },
@@ -76,15 +58,14 @@ export const forumService = {
    * @param replyToId - যদি এটি কোনো নির্দিষ্ট রিপ্লাইয়ের ওপর রিপ্লাই হয়, তবে সেই রিপ্লাইয়ের ID দিন
    */
   addComment: async (postId: string, commentText: string, parentId: string | null = null, replyToId: string | null = null) => {
-    const response = await axios.post(
+    const response = await api.post(
       `${API_URL}/comments`,
       { 
         post_id: postId, 
         comment_text: commentText,
         parent_id: parentId,
         reply_to_id: replyToId
-      },
-      getAuthHeader()
+      }
     );
     return response.data;
   },
@@ -93,9 +74,8 @@ export const forumService = {
    * ৬. কমেন্ট ডিলিট করা
    */
   deleteComment: async (commentId: string) => {
-    const response = await axios.delete(
-      `${API_URL}/comments/${commentId}`, 
-      getAuthHeader()
+    const response = await api.delete(
+      `${API_URL}/comments/${commentId}`
     );
     return response.data;
   },
@@ -104,10 +84,9 @@ export const forumService = {
    * ৭. রিঅ্যাক্ট (Like) টগল করা
    */
   toggleReact: async (postId: string) => {
-    const response = await axios.post(
+    const response = await api.post(
       `${API_URL}/react`,
-      { post_id: postId },
-      getAuthHeader()
+      { post_id: postId }
     );
     return response.data;
   },
@@ -116,10 +95,9 @@ export const forumService = {
    * ৮. পোস্ট আপডেট করা
    */
   updatePost: async (postId: string, content: string, category: string, batch: string) => {
-    const response = await axios.put(
+    const response = await api.put(
       `${API_URL}/posts/${postId}`,
-      { content, category, batch },
-      getAuthHeader()
+      { content, category, batch }
     );
     return response.data;
   },
@@ -128,10 +106,9 @@ export const forumService = {
    * ৯. ইউজার ব্লক করা
    */
   blockUser: async (userId: string) => {
-    const response = await axios.post(
+    const response = await api.post(
       `${API_URL}/block`,
-      { blocked_user_id: userId },
-      getAuthHeader()
+      { blocked_user_id: userId }
     );
     return response.data;
   },
@@ -140,10 +117,9 @@ export const forumService = {
    * ইউজার আনব্লক করা
    */
   unblockUser: async (userId: string) => {
-    const response = await axios.post(
+    const response = await api.post(
       `${API_URL}/unblock`,
-      { blocked_user_id: userId },
-      getAuthHeader()
+      { blocked_user_id: userId }
     );
     return response.data;
   },
@@ -152,9 +128,8 @@ export const forumService = {
    * ব্লকড ইউজারদের তালিকা
    */
   getBlockedUsers: async () => {
-    const response = await axios.get(
-      `${API_URL}/blocked-users`,
-      getAuthHeader()
+    const response = await api.get(
+      `${API_URL}/blocked-users`
     );
     return response.data;
   },
@@ -163,9 +138,8 @@ export const forumService = {
    * ১০. নির্দিষ্ট ইউজারের পোস্ট ফেচ করা
    */
   getUserPosts: async (userId: string) => {
-    const response = await axios.get(
-      `${API_URL}/user/${userId}/posts`,
-      getAuthHeader()
+    const response = await api.get(
+      `${API_URL}/user/${userId}/posts`
     );
     return response.data;
   },
@@ -174,9 +148,8 @@ export const forumService = {
    * ১১. ইউজারের প্রোফাইল তথ্য ফেচ করা (অন্য ইউজারের জন্য)
    */
   getUserProfile: async (userId: string) => {
-    const response = await axios.get(
-      `${API_URL}/user/${userId}/profile`,
-      getAuthHeader()
+    const response = await api.get(
+      `${API_URL}/user/${userId}/profile`
     );
     return response.data;
   }

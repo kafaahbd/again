@@ -4,13 +4,12 @@ import { useLanguage } from "../contexts/LanguageContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import SEO from "../components/SEO";
 
 const Login = () => {
   const { t, lang } = useLanguage();
-  const { login, isLoading, user } = useAuth();
+  const { login, isLoading, user, api } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -65,7 +64,7 @@ const Login = () => {
     setError("");
 
     try {
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/resend-code`, {
+      await api.post(`/auth/resend-code`, {
         email: unverifiedEmail,
       });
       setResendSuccess(lang === 'bn' ? "কোড পুনরায় পাঠানো হয়েছে!" : "Verification code resent!");

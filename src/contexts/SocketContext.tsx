@@ -27,7 +27,7 @@ interface SocketContextType {
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, token } = useAuth();
+  const { user, token, api } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
@@ -37,17 +37,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const refreshUnreadCounts = async () => {
     if (!token) return;
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL;
       const [msgRes, notifRes, notifListRes] = await Promise.all([
-        axios.get(`${API_URL}/messages/unread/count`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        axios.get(`${API_URL}/notifications/unread/count`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        axios.get(`${API_URL}/notifications`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+        api.get("/messages/unread/count"),
+        api.get("/notifications/unread/count"),
+        api.get("/notifications")
       ]);
       setUnreadMessagesCount(msgRes.data.count);
       setUnreadNotificationsCount(notifRes.data.count);
@@ -127,8 +120,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const registration = await navigator.serviceWorker.register('/sw.js');
       
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
-      const res = await axios.get(`${API_URL}/push/public-key`);
+      const res = await api.get("/push/public-key");
       const publicVapidKey = res.data.publicKey;
 
       const subscription = await registration.pushManager.subscribe({
@@ -136,9 +128,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
       });
 
-      await axios.post(`${API_URL}/push/subscribe`, subscription, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.post("/push/subscribe", subscription);
     } catch (error) {
       console.error('Error subscribing to push notifications:', error);
     }
@@ -163,10 +153,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const markNotificationAsRead = async (id: string) => {
     if (!token) return;
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
-      await axios.put(`${API_URL}/notifications/${id}/read`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.put(`/notifications/${id}/read`, {});
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
       setUnreadNotificationsCount(prev => Math.max(0, prev - 1));
     } catch (error) {
@@ -177,10 +164,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const markAllNotificationsAsRead = async () => {
     if (!token) return;
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
-      await axios.put(`${API_URL}/notifications/read-all`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.put("/notifications/read-all", {});
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
       setUnreadNotificationsCount(0);
     } catch (error) {

@@ -37,6 +37,12 @@ const CreatePost: React.FC = () => {
     const postBatches = ["SSC", "HSC", "All"];
 
     useEffect(() => {
+        if (!user) {
+            navigate.push("/login");
+        }
+    }, [user, navigate]);
+
+    useEffect(() => {
         if (isEditing && postId) {
             const fetchPost = async () => {
                 try {

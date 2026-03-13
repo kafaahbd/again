@@ -6,7 +6,8 @@ import React, {
     useEffect,
     useMemo,
 } from "react";
-import axios from "axios";
+import axios, { AxiosInstance } from "axios";
+import api from "../services/api"
 import LogoutModal from "../components/LogoutModal";
 
 // ইউজার ইন্টারফেস
@@ -45,6 +46,7 @@ interface AuthContextType {
     logout: () => void;
     confirmLogout: () => void;
     isLoading: boolean;
+    api: AxiosInstance;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -57,60 +59,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const [isLoading, setIsLoading] = useState(false);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
+    // Response interceptor for Token Refresh (moved to api.ts or kept here if it needs state)
     useEffect(() => {
-        axios.defaults.withCredentials = true;
-        
-        // Global interceptor for all axios requests
-        const reqInterceptor = axios.interceptors.request.use(async (config) => {
-            const timestamp = Date.now().toString();
-            const method = config.method?.toUpperCase() || 'GET';
-            const url = new URL(config.url || '', config.baseURL || window.location.origin);
-            const path = url.pathname + url.search;
-            
-            let bodyStr = '';
-            if (config.data) {
-                if (typeof config.data === 'string') {
-                    bodyStr = config.data;
-                } else if (Object.keys(config.data).length > 0) {
-                    bodyStr = JSON.stringify(config.data);
-                }
-            }
-            
-            const payload = `${method}:${path}:${timestamp}:${bodyStr}`;
-            const secret = process.env.NEXT_PUBLIC_HMAC_SECRET || 'default_hmac_secret_for_development';
-            
-            const encoder = new TextEncoder();
-            const keyData = encoder.encode(secret);
-            const cryptoKey = await window.crypto.subtle.importKey(
-                'raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-            );
-            const signatureBuffer = await window.crypto.subtle.sign(
-                'HMAC', cryptoKey, encoder.encode(payload)
-            );
-            const signatureArray = Array.from(new Uint8Array(signatureBuffer));
-            const signatureHex = signatureArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-            config.headers['x-api-signature'] = signatureHex;
-            config.headers['x-api-timestamp'] = timestamp;
-
-            return config;
-        });
-
-        // We no longer rely on localStorage for the token.
-        // The token is stored in an httpOnly cookie.
-        // We trigger a profile load to check if the user is authenticated.
-        setToken("cookie-based"); 
-    }, []);
-
-    // API Instance তৈরি: যা প্রতি রিকোয়েস্টে অটোমেটিক টোকেন পাঠাবে
-    const api = useMemo(() => {
-        const instance = axios.create({
-            baseURL: process.env.NEXT_PUBLIC_API_URL,
-            withCredentials: true,
-        });
-
-        // যদি টোকেন এক্সপায়ার হয় (৪০১ এরর), তবে অটো লগআউট করবে
-        instance.interceptors.response.use(
+        const interceptor = api.interceptors.response.use(
             (response) => response,
             async (error) => {
                 const originalRequest = error.config;
@@ -118,18 +69,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                     originalRequest._retry = true;
                     try {
                         await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh-token`, {}, { withCredentials: true });
-                        return instance(originalRequest);
+                        return api(originalRequest);
                     } catch (refreshError) {
-                        logout();
+                        setUser(null);
+                        setToken(null);
                         return Promise.reject(refreshError);
                     }
                 }
                 return Promise.reject(error);
             }
         );
-
-        return instance;
+        return () => api.interceptors.response.eject(interceptor);
     }, []);
+
+    useEffect(() => {
+        const initAuth = async () => {
+            axios.defaults.withCredentials = true;
+            
+            // Initialize CSRF token
+            try {
+                await api.get('/auth/csrf-token');
+            } catch (e) {
+                console.error("CSRF initialization failed", e);
+            }
+
+            // We no longer rely on localStorage for the token.
+            setToken("cookie-based"); 
+        };
+        
+        initAuth();
+    }, [api]);
 
     // অ্যাপ লোড হওয়ার সময় বা টোকেন চেঞ্জ হলে প্রোফাইল ফেচ করা
     useEffect(() => {
@@ -156,10 +125,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const login = async (identifier: string, password: string) => {
         setIsLoading(true);
         try {
-            const response = await axios.post(
-                `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
-                { identifier, password },
-                { withCredentials: true }
+            const response = await api.post(
+                "/auth/login",
+                { identifier, password }
             );
 
             const { user: loggedInUser } = response.data;
@@ -182,8 +150,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const register = async (userData: RegisterData) => {
         setIsLoading(true);
         try {
-            const response = await axios.post(
-                `${process.env.NEXT_PUBLIC_API_URL}/auth/register`,
+            const response = await api.post(
+                "/auth/register",
                 userData
             );
             return response.data;
@@ -214,11 +182,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     // লগআউট ফাংশন
     const logout = async () => {
         try {
-            await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {}, { withCredentials: true });
+            await api.post("/auth/logout", {});
         } catch (error) {
             console.error("Logout error", error);
         }
-        localStorage.removeItem("token");
         setToken(null);
         setUser(null);
         setIsLogoutModalOpen(false);
@@ -239,6 +206,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 logout,
                 confirmLogout,
                 isLoading,
+                api,
             }}
         >
             {children}
