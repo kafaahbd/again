@@ -58,32 +58,71 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
     useEffect(() => {
-        const savedToken = localStorage.getItem("token");
-        if (savedToken) {
-            setToken(savedToken);
-        }
+        axios.defaults.withCredentials = true;
+        
+        // Global interceptor for all axios requests
+        const reqInterceptor = axios.interceptors.request.use(async (config) => {
+            const timestamp = Date.now().toString();
+            const method = config.method?.toUpperCase() || 'GET';
+            const url = new URL(config.url || '', config.baseURL || window.location.origin);
+            const path = url.pathname + url.search;
+            
+            let bodyStr = '';
+            if (config.data) {
+                if (typeof config.data === 'string') {
+                    bodyStr = config.data;
+                } else if (Object.keys(config.data).length > 0) {
+                    bodyStr = JSON.stringify(config.data);
+                }
+            }
+            
+            const payload = `${method}:${path}:${timestamp}:${bodyStr}`;
+            const secret = process.env.NEXT_PUBLIC_HMAC_SECRET || 'default_hmac_secret_for_development';
+            
+            const encoder = new TextEncoder();
+            const keyData = encoder.encode(secret);
+            const cryptoKey = await window.crypto.subtle.importKey(
+                'raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+            );
+            const signatureBuffer = await window.crypto.subtle.sign(
+                'HMAC', cryptoKey, encoder.encode(payload)
+            );
+            const signatureArray = Array.from(new Uint8Array(signatureBuffer));
+            const signatureHex = signatureArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+            config.headers['x-api-signature'] = signatureHex;
+            config.headers['x-api-timestamp'] = timestamp;
+
+            return config;
+        });
+
+        // We no longer rely on localStorage for the token.
+        // The token is stored in an httpOnly cookie.
+        // We trigger a profile load to check if the user is authenticated.
+        setToken("cookie-based"); 
     }, []);
 
     // API Instance তৈরি: যা প্রতি রিকোয়েস্টে অটোমেটিক টোকেন পাঠাবে
     const api = useMemo(() => {
         const instance = axios.create({
             baseURL: process.env.NEXT_PUBLIC_API_URL,
-        });
-
-        instance.interceptors.request.use((config) => {
-            const currentToken = localStorage.getItem("token");
-            if (currentToken) {
-                config.headers.Authorization = `Bearer ${currentToken}`;
-            }
-            return config;
+            withCredentials: true,
         });
 
         // যদি টোকেন এক্সপায়ার হয় (৪০১ এরর), তবে অটো লগআউট করবে
         instance.interceptors.response.use(
             (response) => response,
-            (error) => {
-                if (error.response?.status === 401) {
-                    logout();
+            async (error) => {
+                const originalRequest = error.config;
+                if (error.response?.status === 401 && !originalRequest._retry) {
+                    originalRequest._retry = true;
+                    try {
+                        await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh-token`, {}, { withCredentials: true });
+                        return instance(originalRequest);
+                    } catch (refreshError) {
+                        logout();
+                        return Promise.reject(refreshError);
+                    }
                 }
                 return Promise.reject(error);
             }
@@ -102,6 +141,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                     setUser(response.data);
                 } catch (error) {
                     console.error("Profile fetch failed:", error);
+                    setUser(null);
                 } finally {
                     setIsLoading(false);
                 }
@@ -118,14 +158,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         try {
             const response = await axios.post(
                 `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
-                { identifier, password }
+                { identifier, password },
+                { withCredentials: true }
             );
 
-            const { token: newToken, user: loggedInUser } = response.data;
+            const { user: loggedInUser } = response.data;
 
             // টোকেন এবং ইউজার স্টেট আপডেট
-            localStorage.setItem("token", newToken);
-            setToken(newToken);
+            setToken("cookie-based");
             setUser(loggedInUser);
         } catch (error: any) {
             // ব্যাকএন্ড থেকে আসা এরর মেসেজ (যেমন: needsVerification: true) থ্রো করা
@@ -172,7 +212,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     };
 
     // লগআউট ফাংশন
-    const logout = () => {
+    const logout = async () => {
+        try {
+            await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {}, { withCredentials: true });
+        } catch (error) {
+            console.error("Logout error", error);
+        }
         localStorage.removeItem("token");
         setToken(null);
         setUser(null);

@@ -6,6 +6,7 @@ import "katex/dist/katex.min.css";
 import { LanguageProvider } from "../contexts/LanguageContext";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { AuthProvider } from "../contexts/AuthContext";
+import { SocketProvider } from "../contexts/SocketContext";
 import ClientLayout from "./ClientLayout";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -115,6 +116,7 @@ export default function RootLayout({
 	return (
 		<html lang="bn">
 			<head>
+				<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 				{/* JSON-LD Injection */}
 				<script
 					type="application/ld+json"
@@ -127,7 +129,9 @@ export default function RootLayout({
 				<ThemeProvider>
 					<LanguageProvider>
 						<AuthProvider>
-							<ClientLayout>{children}</ClientLayout>
+							<SocketProvider>
+								<ClientLayout>{children}</ClientLayout>
+							</SocketProvider>
 						</AuthProvider>
 					</LanguageProvider>
 				</ThemeProvider>

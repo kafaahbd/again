@@ -8,14 +8,17 @@ import { useAuth } from '../contexts/AuthContext';
 import LanguageToggle from './LanguageToggle';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, MessageSquare, Zap, Settings, User, LogOut, X, Menu } from 'lucide-react';
+import { BookOpen, MessageSquare, Zap, Settings, User, LogOut, X, Menu, Bell, Mail } from 'lucide-react';
 import { getProfileColor } from '../typescriptfile/utils';
+import { useSocket } from '../contexts/SocketContext';
 
 const Navbar: React.FC = () => {
   const { t } = useLanguage();
   const pathname = usePathname();
   const { user, confirmLogout } = useAuth();
+  const { unreadMessagesCount, unreadNotificationsCount, notifications, markNotificationAsRead, markAllNotificationsAsRead } = useSocket();
   const [showSettings, setShowSettings] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const isActive = (path: string) => pathname === path;
 
@@ -79,6 +82,83 @@ const Navbar: React.FC = () => {
                 <LanguageToggle />
                 <ThemeToggle />
               </div>
+
+              {/* Messages & Notifications */}
+              {user && (
+                <div className="flex items-center gap-1 md:gap-2 mr-1 md:mr-2">
+                  <Link href="/messages" className="relative p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-xl transition-all">
+                    <Mail size={20} />
+                    {unreadMessagesCount > 0 && (
+                      <span className="absolute top-1 right-1 h-4 w-4 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full">
+                        {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                      </span>
+                    )}
+                  </Link>
+                  <div className="relative">
+                    <button 
+                      onClick={() => setShowNotifications(!showNotifications)}
+                      className="relative p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-xl transition-all"
+                    >
+                      <Bell size={20} />
+                      {unreadNotificationsCount > 0 && (
+                        <span className="absolute top-1 right-1 h-4 w-4 bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full">
+                          {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
+                        </span>
+                      )}
+                    </button>
+                    
+                    {/* Notifications Dropdown */}
+                    <AnimatePresence>
+                      {showNotifications && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: 10 }} 
+                          animate={{ opacity: 1, y: 0 }} 
+                          exit={{ opacity: 0, y: 10 }}
+                          className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-950 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-900 overflow-hidden z-[130]"
+                        >
+                          <div className="p-4 border-b border-gray-100 dark:border-gray-900 flex justify-between items-center">
+                            <h4 className="font-bold text-gray-900 dark:text-white">Notifications</h4>
+                            {unreadNotificationsCount > 0 && (
+                              <button 
+                                onClick={markAllNotificationsAsRead}
+                                className="text-xs text-emerald-600 font-bold hover:underline"
+                              >
+                                Mark all as read
+                              </button>
+                            )}
+                          </div>
+                          <div className="max-h-[300px] overflow-y-auto">
+                            {notifications.length === 0 ? (
+                              <div className="p-6 text-center text-gray-500 text-sm">
+                                No notifications yet
+                              </div>
+                            ) : (
+                              notifications.map(notif => (
+                                <Link 
+                                  key={notif.id}
+                                  href={notif.type === 'message' ? '/messages' : `/post/${notif.related_id}`}
+                                  onClick={() => {
+                                    if (!notif.is_read) markNotificationAsRead(notif.id);
+                                    setShowNotifications(false);
+                                  }}
+                                  className={`block p-4 border-b border-gray-50 dark:border-gray-900/50 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors ${!notif.is_read ? 'bg-emerald-50/50 dark:bg-emerald-900/10' : ''}`}
+                                >
+                                  <p className={`text-sm ${!notif.is_read ? 'font-bold text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>
+                                    {notif.message || (notif.type === 'comment_reply' ? 'Someone replied to your comment.' : 'New notification')}
+                                  </p>
+                                  <p className="text-[10px] text-gray-400 mt-1">
+                                    {new Date(notif.created_at).toLocaleString()}
+                                  </p>
+                                </Link>
+                              ))
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              )}
 
               {/* Profile/Settings Icon for Mobile (Drawer Trigger) */}
               <button 

@@ -1,6 +1,7 @@
 "use client";
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Sun, Moon } from 'lucide-react';
 
 const ThemeToggle: React.FC = () => {
   const { darkMode, toggleTheme } = useTheme();
@@ -21,9 +22,9 @@ const ThemeToggle: React.FC = () => {
           className="flex items-center justify-center"
         >
           {darkMode ? (
-            <i className="fas fa-sun text-amber-500 text-lg drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]"></i>
+            <Sun size={18} className="text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
           ) : (
-            <i className="fas fa-moon text-indigo-600 text-lg drop-shadow-[0_0_8px_rgba(79,70,229,0.3)]"></i>
+            <Moon size={18} className="text-indigo-600 drop-shadow-[0_0_8px_rgba(79,70,229,0.3)]" />
           )}
         </motion.div>
       </AnimatePresence>
