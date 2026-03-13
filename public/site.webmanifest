@@ -1,6 +1,6 @@
 {
-  "name": "Kafaah Study Corner",
-  "short_name": "Study Corner",
+  "name": "Study Corner",
+  "short_name": "Study",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
@@ -16,6 +16,6 @@
     }
   ],
   "theme_color": "#ffffff",
-  "background_color": "#017c7d",
+  "background_color": "#086e8b",
   "display": "standalone"
 }
