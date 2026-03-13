@@ -1,21 +1,21 @@
 {
-  "name": "Study Corner ",
+  "name": "Study Corner",
   "short_name": "Study",
   "icons": [
     {
-      "src": "/web-app-manifest-192x192.png",
+      "src": "https://study.kafaahbd.com/web-app-manifest-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/web-app-manifest-512x512.png",
+      "src": "https://study.kafaahbd.com/web-app-manifest-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     }
   ],
   "theme_color": "#ffffff",
-  "background_color": "#0c4106",
+  "background_color": "#001f3b",
   "display": "standalone"
 }
