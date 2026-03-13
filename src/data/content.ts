@@ -29,7 +29,7 @@ export const content: Record<string, Record<string, string>> = {
 		
 		//head
 
-		"head.study":"Kafa'ah Study Corner",
+		"head.study":"Study Corner",
 
 		// Study
 		"study.quran": "Quran Courses (coming soon)",
@@ -227,7 +227,7 @@ export const content: Record<string, Record<string, string>> = {
 		
 
 		//head
-		"head.study":"কাফাআহ স্টাডি কর্নার",
+		"head.study":"স্টাডি কর্নার",
 
 		// Study
 		"study.quran": "কোরআন কোর্স (শীঘ্রই আসছে)",
