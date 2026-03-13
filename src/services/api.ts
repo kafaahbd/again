@@ -20,20 +20,19 @@ api.interceptors.request.use((config) => {
   const csrfToken = getCookie("XSRF-TOKEN");
   if (csrfToken) {
     config.headers["x-xsrf-token"] = csrfToken;
+  } else if (typeof window !== "undefined") {
+    console.warn("CSRF token (XSRF-TOKEN) not found in cookies. POST requests may fail.");
   }
   
   // HMAC Signature - Only if we are in a Node environment or have a polyfill
-  // For now, we'll skip this on the client side if crypto is not available
-  // or just use a placeholder if needed. The server-side routes we use
-  // for login don't require this yet.
   const hmacSecret = process.env.NEXT_PUBLIC_HMAC_SECRET;
   if (hmacSecret && typeof window !== "undefined") {
-    // On client side, we'd need a browser-compatible crypto library
-    // For now, let's just add the timestamp which is often needed
     config.headers["x-api-timestamp"] = Date.now().toString();
   }
   
   return config;
+}, (error) => {
+  return Promise.reject(error);
 });
 
 export default api;
