@@ -14,13 +14,15 @@ import PostCreator from "../components/forum/PostCreator";
 import FilterBar from "../components/forum/FilterBar";
 import FilterModal from "../components/forum/FilterModal";
 import ForumFeed from "../components/forum/ForumFeed";
+import { ChatUser } from "../types/messages";
 
 const Forum: React.FC = () => {
   const { user, api } = useAuth();
   const { lang } = useLanguage();
   const navigate = useRouter();
 
-  const [posts, setPosts] = useState<any[]>([]);
+  
+  const [posts, setPosts] = useState<any[]>([]); // Keeping any for posts for now as it's complex
   const [loading, setLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [activeBatch, setActiveBatch] = useState<string>("All");
@@ -32,7 +34,7 @@ const Forum: React.FC = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const [userSearchQuery, setUserSearchQuery] = useState("");
-  const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
+  const [userSearchResults, setUserSearchResults] = useState<ChatUser[]>([]);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
 
   // User search logic
