@@ -26,6 +26,25 @@ const MessagesContent = () => {
   const [searchResults, setSearchResults] = useState<ChatUser[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<ChatUser | null>(null);
+
+  // --- API: Search Users ---
+  useEffect(() => {
+    const searchUsers = async () => {
+      if (searchQuery.length < 2) {
+        setSearchResults([]);
+        return;
+      }
+      try {
+        const res = await api.get(`/messages/search?q=${searchQuery}`);
+        setSearchResults(res.data);
+      } catch (error) {
+        console.error("Search error:", error);
+      }
+    };
+
+    const timeoutId = setTimeout(searchUsers, 300);
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, api]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -55,38 +74,67 @@ const MessagesContent = () => {
         unread_count: c.unread_count
       }));
       setUsers(mappedUsers);
-      
-      // Handle URL targets (Conversation or Direct User)
+      return mappedUsers;
+    } catch (error) { 
+      console.error("Conversations error:", error);
+      return [];
+    } finally { 
+      setLoading(false); 
+    }
+  }, [api]);
+
+  // Initial fetch
+  useEffect(() => { 
+    fetchUsers(); 
+  }, [fetchUsers]);
+
+  // Handle URL targets (Conversation or Direct User)
+  useEffect(() => {
+    const handleUrlTargets = async () => {
+      if (!users.length && loading) return;
+
       if (targetConvId) {
-        const targetConv = mappedUsers.find((u: ChatUser) => u.conversation_id === targetConvId);
-        if (targetConv) { setSelectedUser(targetConv); setShowMobileList(false); }
+        const targetConv = users.find((u: ChatUser) => u.conversation_id === targetConvId);
+        if (targetConv) { 
+          setSelectedUser(targetConv); 
+          setShowMobileList(false); 
+        }
       } else if (targetUserId) {
-        const targetUser = mappedUsers.find((u: ChatUser) => u.id === targetUserId);
+        const targetUser = users.find((u: ChatUser) => u.id === targetUserId);
         if (targetUser) { 
           setSelectedUser(targetUser); 
           setShowMobileList(false); 
         } else {
-          // Create new conversation logic
-          const convRes = await api.post("/messages/conversations", { otherUserId: targetUserId });
-          const userRes = await api.get(`/messages/search?q=${targetUserId}`);
-          const foundUser = userRes.data.find((u: any) => u.id === targetUserId);
-          if (foundUser) {
-            setSelectedUser({
-              id: foundUser.id,
-              conversation_id: convRes.data.id,
-              name: foundUser.name,
-              username: foundUser.username,
-              profile_color: foundUser.profile_color
-            });
-            setShowMobileList(false);
+          // Create new conversation logic or fetch user from DB
+          try {
+            const userRes = await api.get(`/messages/search?q=${targetUserId}`);
+            const foundUser = userRes.data.find((u: any) => u.id === targetUserId);
+            if (foundUser) {
+              const convRes = await api.post("/messages/conversations", { otherUserId: targetUserId });
+              setSelectedUser({
+                id: foundUser.id,
+                conversation_id: convRes.data.id,
+                name: foundUser.name,
+                username: foundUser.username,
+                profile_color: foundUser.profile_color
+              });
+              setShowMobileList(false);
+              // Refresh list to include new conversation
+              fetchUsers();
+            } else {
+              console.warn("User not found for ID:", targetUserId);
+              // Clear search params if user not found to avoid infinite loop or confusion
+              router.replace('/messages', { scroll: false });
+            }
+          } catch (err) {
+            console.error("Error handling target user:", err);
           }
         }
       }
-    } catch (error) { console.error("Conversations error:", error);
-    } finally { setLoading(false); }
-  }, [api, targetUserId, targetConvId]);
+    };
 
-  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+    handleUrlTargets();
+  }, [targetUserId, targetConvId, users, loading, api, router, fetchUsers]);
 
   // --- Logic: Messages & Socket ---
   const fetchMessages = useCallback(async (conversationId: string, before?: string) => {
@@ -151,6 +199,10 @@ const MessagesContent = () => {
       fetchUsers();
     });
 
+    socket.on('message_sent', () => {
+      fetchUsers();
+    });
+
     socket.on('typing_start', (data: { senderId: string }) => {
       if (selectedUser?.id === data.senderId) setIsTyping(true);
     });
@@ -204,6 +256,7 @@ const MessagesContent = () => {
 
     return () => {
       socket.off('receive_message');
+      socket.off('message_sent');
       socket.off('typing_start');
       socket.off('typing_end');
       socket.off('messages_seen');

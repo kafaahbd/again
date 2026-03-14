@@ -25,17 +25,7 @@ const UserSearch: React.FC<UserSearchProps> = ({
   lang
 }) => {
   return (
-    <div className="p-4 border-b border-gray-100 dark:border-gray-800/60 bg-white dark:bg-gray-950">
-      {/* Header Section */}
-      <div className="flex items-center justify-between mb-4 px-1">
-        <h1 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">
-          {lang === "bn" ? "মেসেজ" : "Messages"}
-        </h1>
-        <div className="p-2 bg-emerald-50 dark:bg-emerald-900/10 rounded-lg text-emerald-600 dark:text-emerald-500">
-           <UserPlus size={18} />
-        </div>
-      </div>
-
+    <div className="p-0 bg-transparent">
       {/* Search Input Area */}
       <div className="relative group">
         <Search 

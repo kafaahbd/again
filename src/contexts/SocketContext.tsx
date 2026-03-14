@@ -21,6 +21,7 @@ interface SocketContextType {
   notifications: Notification[];
   markNotificationAsRead: (id: string) => void;
   markAllNotificationsAsRead: () => void;
+  deleteNotification: (id: string) => void;
   refreshUnreadCounts: () => void;
 }
 
@@ -176,6 +177,22 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const deleteNotification = async (id: string) => {
+    if (!token) return;
+    try {
+      await api.delete(`/notifications/${id}`);
+      setNotifications(prev => {
+        const notif = prev.find(n => n.id === id);
+        if (notif && !notif.is_read) {
+          setUnreadNotificationsCount(count => Math.max(0, count - 1));
+        }
+        return prev.filter(n => n.id !== id);
+      });
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  };
+
   return (
     <SocketContext.Provider value={{
       socket,
@@ -185,6 +202,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       notifications,
       markNotificationAsRead,
       markAllNotificationsAsRead,
+      deleteNotification,
       refreshUnreadCounts
     }}>
       {children}

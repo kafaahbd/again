@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Send, Smile, X, Edit2, Reply } from "lucide-react";
 import EmojiPicker, { Theme } from "emoji-picker-react";
+import "./haram-emojis.css";
 import { Message } from "../../types/messages";
 
 interface MessageInputProps {

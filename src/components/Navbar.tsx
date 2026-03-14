@@ -24,7 +24,7 @@ import { getProfileColor } from "../typescriptfile/utils";
 import { useSocket } from "../contexts/SocketContext";
 
 const Navbar: React.FC = () => {
-  const { t } = useLanguage();
+  const { t , lang} = useLanguage();
   const pathname = usePathname();
   const { user, confirmLogout } = useAuth();
   const {
@@ -33,6 +33,7 @@ const Navbar: React.FC = () => {
     notifications,
     markNotificationAsRead,
     markAllNotificationsAsRead,
+    deleteNotification,
   } = useSocket();
   const [showSettings, setShowSettings] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -155,7 +156,19 @@ const Navbar: React.FC = () => {
                                 className={`block p-4 border-b border-gray-50 dark:border-gray-800/50 hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10 transition-colors ${!notif.is_read ? "bg-emerald-50/20 dark:bg-emerald-500/5" : ""}`}
                               >
                                 <p className={`text-sm ${!notif.is_read ? "font-bold text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"}`}>{notif.message}</p>
-                                <p className="text-[9px] text-gray-400 mt-1 uppercase font-bold">{new Date(notif.created_at).toLocaleTimeString()}</p>
+                                <div className="flex items-center justify-between mt-1">
+                                  <p className="text-[9px] text-gray-400 uppercase font-bold">{new Date(notif.created_at).toLocaleTimeString()}</p>
+                                  <button 
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      deleteNotification(notif.id);
+                                    }}
+                                    className="text-[9px] font-black text-red-500 hover:text-red-600 transition-colors uppercase tracking-wider"
+                                  >
+                                    {lang === "bn" ? "মুছে ফেলুন" : "Delete"}
+                                  </button>
+                                </div>
                               </Link>
                             ))
                           )}
