@@ -62,8 +62,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     // Response interceptor for Token Refresh
     useEffect(() => {
         // Configure global axios
-        axios.defaults.withCredentials = true;
-        axios.defaults.baseURL = process.env.NEXT_PUBLIC_API_URL || "/api";
+        api.defaults.withCredentials = true;
+        api.defaults.baseURL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
         const getCookie = (name: string) => {
             if (typeof document === "undefined") return null;
@@ -82,7 +82,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             
             csrfTokenPromise = (async () => {
                 try {
-                    const response = await axios.get('/auth/csrf-token', { withCredentials: true });
+                    console.log("Fetching CSRF token...");
+                    const response = await api.get(`/auth/csrf-token?t=${Date.now()}`, { 
+                        withCredentials: true,
+                        headers: {
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache',
+                            'Expires': '0',
+                        }
+                    });
+                    console.log("CSRF token response:", response.data);
                     if (response.data.csrfToken) {
                         csrfTokenCache = response.data.csrfToken;
                         return csrfTokenCache;
@@ -98,29 +107,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             return csrfTokenPromise;
         };
 
-        const requestInterceptor = axios.interceptors.request.use(async (config) => {
+        const requestInterceptor = api.interceptors.request.use(async (config) => {
+            console.log("Request interceptor running for:", config.url, config.method);
             if (['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase() || '')) {
                 if (!csrfTokenCache) {
+                    console.log("No CSRF token in cache, fetching...");
                     await fetchCsrfToken();
                 }
                 if (csrfTokenCache) {
-                    config.headers["X-CSRF-Token"] = csrfTokenCache;
-                    config.headers["x-xsrf-token"] = csrfTokenCache;
+                    console.log("Setting CSRF token header:", csrfTokenCache);
+                    if (config.headers && typeof config.headers.set === 'function') {
+                        config.headers.set("X-CSRF-Token", csrfTokenCache);
+                        config.headers.set("x-xsrf-token", csrfTokenCache);
+                    } else {
+                        config.headers["X-CSRF-Token"] = csrfTokenCache;
+                        config.headers["x-xsrf-token"] = csrfTokenCache;
+                    }
+                    
+                    // Also add to body as fallback
+                    if (config.data && typeof config.data === 'object' && !(config.data instanceof FormData)) {
+                        config.data._csrf = csrfTokenCache;
+                    } else if (!config.data) {
+                        config.data = { _csrf: csrfTokenCache };
+                    }
+                } else {
+                    console.log("Failed to set CSRF token header, cache is still empty");
                 }
             }
             return config;
         });
 
         // Response interceptor
-        const responseInterceptor = axios.interceptors.response.use(
+        const responseInterceptor = api.interceptors.response.use(
             (response) => response,
             async (error) => {
                 const originalRequest = error.config;
                 if (error.response?.status === 401 && !originalRequest._retry) {
                     originalRequest._retry = true;
                     try {
-                        await axios.post(`/auth/refresh-token`, {}, { withCredentials: true });
-                        return axios(originalRequest);
+                        await api.post(`/auth/refresh-token`, {}, { withCredentials: true });
+                        return api(originalRequest);
                     } catch (refreshError) {
                         setUser(null);
                         setToken(null);
@@ -134,7 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                         if (newCsrf) {
                             originalRequest.headers['X-CSRF-Token'] = newCsrf;
                             originalRequest.headers['x-xsrf-token'] = newCsrf;
-                            return axios(originalRequest);
+                            return api(originalRequest);
                         }
                     } catch (refreshError) {
                         return Promise.reject(refreshError);
@@ -145,14 +171,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         );
 
         return () => {
-            axios.interceptors.request.eject(requestInterceptor);
-            axios.interceptors.response.eject(responseInterceptor);
+            api.interceptors.request.eject(requestInterceptor);
+            api.interceptors.response.eject(responseInterceptor);
         };
     }, []);
 
     useEffect(() => {
         const initAuth = async () => {
-            axios.defaults.withCredentials = true;
+            api.defaults.withCredentials = true;
 
             // We no longer rely on localStorage for the token.
             setToken("cookie-based"); 
