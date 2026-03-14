@@ -115,6 +115,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
         const requestInterceptor = api.interceptors.request.use(async (config) => {
             console.log("Request interceptor running for:", config.url, config.method);
+            
+            const storedToken = localStorage.getItem("token");
+            if (storedToken) {
+                config.headers = config.headers || {};
+                config.headers["Authorization"] = `Bearer ${storedToken}`;
+            }
+
             if (['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase() || '')) {
                 if (!csrfTokenCache) {
                     console.log("No CSRF token in cache, fetching...");
@@ -148,17 +155,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             return config;
         });
 
+        let refreshTokenPromise: Promise<any> | null = null;
+
         // Response interceptor
         const responseInterceptor = api.interceptors.response.use(
             (response) => response,
             async (error) => {
                 const originalRequest = error.config;
+                if (originalRequest.url?.includes('/auth/refresh-token') || originalRequest.url?.includes('/auth/csrf-token')) {
+                    return Promise.reject(error);
+                }
+                
                 if (error.response?.status === 401 && !originalRequest._retry) {
                     originalRequest._retry = true;
+                    
+                    if (!refreshTokenPromise) {
+                        const currentRefreshToken = localStorage.getItem("refreshToken");
+                        refreshTokenPromise = api.post(`/auth/refresh-token`, { refreshToken: currentRefreshToken }, { withCredentials: true })
+                            .then(res => {
+                                if (res.data.token) {
+                                    localStorage.setItem("token", res.data.token);
+                                    setToken(res.data.token);
+                                }
+                                if (res.data.refreshToken) {
+                                    localStorage.setItem("refreshToken", res.data.refreshToken);
+                                }
+                                return res.data;
+                            })
+                            .finally(() => {
+                                refreshTokenPromise = null;
+                            });
+                    }
+                    
                     try {
-                        await api.post(`/auth/refresh-token`, {}, { withCredentials: true });
+                        await refreshTokenPromise;
+                        
+                        // Update the original request with the new token
+                        const newToken = localStorage.getItem("token");
+                        if (newToken) {
+                            originalRequest.headers = originalRequest.headers || {};
+                            originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
+                        }
+                        
                         return api(originalRequest);
                     } catch (refreshError) {
+                        localStorage.removeItem("token");
+                        localStorage.removeItem("refreshToken");
                         setUser(null);
                         setToken(null);
                         return Promise.reject(refreshError);
@@ -191,8 +233,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const initAuth = async () => {
             api.defaults.withCredentials = true;
 
-            // We no longer rely on localStorage for the token.
-            setToken("cookie-based"); 
+            const storedToken = localStorage.getItem("token");
+            if (storedToken) {
+                setToken(storedToken);
+            }
         };
         
         initAuth();
@@ -228,10 +272,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 { identifier, password }
             );
 
-            const { user: loggedInUser } = response.data;
+            const { user: loggedInUser, token: newAccessToken, refreshToken: newRefreshToken } = response.data;
 
-            // টোকেন এবং ইউজার স্টেট আপডেট
-            setToken("cookie-based");
+            if (newAccessToken) {
+                localStorage.setItem("token", newAccessToken);
+                setToken(newAccessToken);
+            }
+            if (newRefreshToken) {
+                localStorage.setItem("refreshToken", newRefreshToken);
+            }
             setUser(loggedInUser);
         } catch (error: any) {
             // ব্যাকএন্ড থেকে আসা এরর মেসেজ (যেমন: needsVerification: true) থ্রো করা
@@ -280,10 +329,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     // লগআউট ফাংশন
     const logout = async () => {
         try {
-            await api.post("/auth/logout", {});
+            const currentRefreshToken = localStorage.getItem("refreshToken");
+            await api.post("/auth/logout", { refreshToken: currentRefreshToken });
         } catch (error) {
             console.error("Logout error", error);
         }
+        localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
         setToken(null);
         setUser(null);
         setIsLogoutModalOpen(false);
