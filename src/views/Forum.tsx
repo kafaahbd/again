@@ -171,11 +171,28 @@ const Forum: React.FC = () => {
 
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
-      <PostCreator
-        userName={user?.name}
-        userProfileColor={user?.profile_color}
-        placeholder={lang === "bn" ? "আপনার মনে কি আছে?" : "What's on your mind?"}
-      />
+      {user ? (
+        <PostCreator
+          userName={user?.name}
+          userProfileColor={user?.profile_color}
+          placeholder={lang === "bn" ? "আপনার মনে কি আছে?" : "What's on your mind?"}
+        />
+      ) : (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+            {lang === "bn" ? "পোস্ট করতে লগইন করুন" : "Login to post"}
+          </h3>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
+            {lang === "bn" ? "ফোরামে আলোচনায় অংশ নিতে আপনার অ্যাকাউন্টে লগইন করুন।" : "Login to your account to participate in the forum discussions."}
+          </p>
+          <button
+            onClick={() => navigate.push("/login")}
+            className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors"
+          >
+            {lang === "bn" ? "লগইন করুন" : "Login"}
+          </button>
+        </div>
+      )}
 
       <FilterBar
         activeCategory={activeCategory}
