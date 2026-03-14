@@ -18,6 +18,7 @@ const getCookie = (name: string) => {
 api.interceptors.request.use((config) => {
   // CSRF
   const csrfToken = getCookie("XSRF-TOKEN");
+  console.log('CSRF token from cookie:', csrfToken);
   if (csrfToken) {
     config.headers["X-CSRF-Token"] = csrfToken;
     config.headers["x-xsrf-token"] = csrfToken;

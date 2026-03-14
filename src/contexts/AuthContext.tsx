@@ -68,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 if (error.response?.status === 401 && !originalRequest._retry) {
                     originalRequest._retry = true;
                     try {
-                        await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh-token`, {}, { withCredentials: true });
+                        await api.post(`/auth/refresh-token`, {}, { withCredentials: true });
                         return api(originalRequest);
                     } catch (refreshError) {
                         setUser(null);
