@@ -1,11 +1,12 @@
 "use client";
-import React from "react";
-import { Send, Smile, Paperclip, X, Edit2, Reply } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { Send, Smile, X, Edit2, Reply } from "lucide-react";
+import EmojiPicker, { Theme } from "emoji-picker-react";
 import { Message } from "../../types/messages";
 
 interface MessageInputProps {
   newMessage: string;
-  setNewMessage: (msg: string) => void;
+  setNewMessage: React.Dispatch<React.SetStateAction<string>>;
   onSend: (e: React.FormEvent) => void;
   onTyping: () => void;
   lang: string;
@@ -26,8 +27,31 @@ const MessageInput: React.FC<MessageInputProps> = ({
   onCancelReply,
   onCancelEdit
 }) => {
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const emojiButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        emojiPickerRef.current && 
+        !emojiPickerRef.current.contains(event.target as Node) &&
+        emojiButtonRef.current &&
+        !emojiButtonRef.current.contains(event.target as Node)
+      ) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const onEmojiClick = (emojiObject: any) => {
+    setNewMessage(prev => prev + emojiObject.emoji);
+  };
+
   return (
-    <div className="p-3 md:p-4 bg-white dark:bg-[#0B1120] border-t border-gray-100 dark:border-gray-800/60 flex flex-col gap-2">
+    <div className="p-3 md:p-4 bg-white dark:bg-[#0B1120] border-t border-gray-100 dark:border-gray-800/60 flex flex-col gap-2 relative">
       {/* Reply Preview */}
       {replyingToMessage && (
         <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800/50 p-2 rounded-xl border-l-4 border-emerald-500 text-sm">
@@ -60,16 +84,19 @@ const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
 
-      <form onSubmit={onSend} className="flex items-center gap-2 md:gap-3 max-w-7xl mx-auto w-full">
-        
-        {/* Attachment Button (Optional but kept for professional look) */}
-        <button 
-          type="button" 
-          className="p-2.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 rounded-xl transition-all duration-200"
-        >
-          <Paperclip size={20} />
-        </button>
+      {/* Emoji Picker */}
+      {showEmojiPicker && (
+        <div className="absolute bottom-full right-4 mb-2 z-50" ref={emojiPickerRef}>
+          <EmojiPicker 
+            onEmojiClick={onEmojiClick}
+            theme={Theme.AUTO}
+            lazyLoadEmojis={true}
+          />
+        </div>
+      )}
 
+      <form onSubmit={(e) => { onSend(e); setShowEmojiPicker(false); }} className="flex items-center gap-2 md:gap-3 max-w-7xl mx-auto w-full">
+        
         {/* Text Input Container */}
         <div className="flex-1 relative group">
           <input
@@ -86,6 +113,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
           {/* Emoji Button */}
           <button 
             type="button" 
+            ref={emojiButtonRef}
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-amber-500 transition-colors duration-200"
           >
             <Smile size={20} />
@@ -98,7 +127,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
           disabled={!newMessage.trim()}
           className={`p-3.5 rounded-2xl transition-all duration-300 shadow-lg flex items-center justify-center ${
             newMessage.trim() 
-              ? 'bg-gradient-to-tr from-emerald-600 to-emerald-500 text-white shadow-emerald-500/20 hover:scale-105 active:scale-95' 
+              ? 'bg-gradient-to-tr from-[#0084ff] to-blue-500 text-white shadow-blue-500/20 hover:scale-105 active:scale-95' 
               : 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed opacity-60'
           }`}
         >

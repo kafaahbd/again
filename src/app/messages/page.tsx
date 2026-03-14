@@ -36,6 +36,7 @@ const MessagesContent = () => {
   const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const loadingMessagesRef = useRef(false);
   
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -89,7 +90,8 @@ const MessagesContent = () => {
 
   // --- Logic: Messages & Socket ---
   const fetchMessages = useCallback(async (conversationId: string, before?: string) => {
-    if (loadingMessages || (!before && !hasMoreMessages)) return;
+    if (loadingMessagesRef.current || (before && !hasMoreMessages)) return;
+    loadingMessagesRef.current = true;
     setLoadingMessages(true);
     try {
       const url = before 
@@ -116,9 +118,10 @@ const MessagesContent = () => {
     } catch (error) { 
       console.error("Messages fetch error:", error); 
     } finally {
+      loadingMessagesRef.current = false;
       setLoadingMessages(false);
     }
-  }, [api, refreshUnreadCounts, loadingMessages, hasMoreMessages]);
+  }, [api, refreshUnreadCounts, hasMoreMessages]);
 
   const loadMoreMessages = () => {
     if (messages.length > 0 && selectedUser && hasMoreMessages) {
@@ -321,6 +324,20 @@ const MessagesContent = () => {
     }, 2000);
   };
 
+  const handleBlockUser = async (userId: string) => {
+    try {
+      await api.post(`/messages/block/${userId}`);
+      // Optionally, remove the user from the conversation list or show a success message
+      setUsers(prev => prev.filter(u => u.id !== userId));
+      setSelectedUser(null);
+      setShowMobileList(true);
+      alert(lang === "bn" ? "ইউজারকে ব্লক করা হয়েছে।" : "User blocked successfully.");
+    } catch (err) {
+      console.error("Error blocking user:", err);
+      alert(lang === "bn" ? "ব্লক করতে সমস্যা হয়েছে।" : "Failed to block user.");
+    }
+  };
+
   const selectUser = async (u: any) => {
     if (!u.conversation_id) {
       try {
@@ -348,7 +365,7 @@ const MessagesContent = () => {
   );
 
   return (
-    <div className="flex h-[calc(100vh-64px)] bg-gray-50 dark:bg-[#0B1120] overflow-hidden transition-colors duration-500">
+    <div className="flex flex-grow h-full bg-gray-50 dark:bg-[#0B1120] overflow-hidden transition-colors duration-500">
       <SEO title={lang === "bn" ? "মেসেজ - কাফআহ" : "Messages - Kafa'ah"} />
       
       {/* --- Left Sidebar: Conversation List --- */}
@@ -415,6 +432,7 @@ const MessagesContent = () => {
                 onLoadMore={loadMoreMessages}
                 hasMore={hasMoreMessages}
                 isLoadingMore={loadingMessages}
+                onBlockUser={handleBlockUser}
               />
             </motion.div>
           ) : (

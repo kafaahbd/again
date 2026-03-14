@@ -13,7 +13,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-white selection:bg-green-100 dark:selection:bg-blue-900/30">
       <Navbar />
 
-      <main className="flex-grow relative">
+      <main className="flex-grow relative flex flex-col">
         <AnimatePresence mode="wait">
           <motion.div
             key={pathname}
@@ -21,6 +21,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
+            className="flex-grow flex flex-col"
           >
             <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">Loading...</div>}>
               {children}
@@ -29,7 +30,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </AnimatePresence>
       </main>
 
-      <Footer />
+      {!pathname.startsWith('/messages') && <Footer />}
     </div>
   );
 }

@@ -1,10 +1,11 @@
 "use client";
-import React, { useRef, useEffect } from "react";
-import { ChevronLeft, Send, ShieldCheck, User, Info } from "lucide-react";
+import React, { useRef, useEffect, useState } from "react";
+import { ChevronLeft, Send, ShieldCheck, User, Info, Ban } from "lucide-react";
 import { isSameDay, format, isToday, isYesterday } from "date-fns";
 import MessageBubble from "./MessageBubble";
 import TypingIndicator from "./TypingIndicator";
 import MessageInput from "./MessageInput";
+import Link from "next/link";
 
 import { ChatUser, Message } from "../../types/messages";
 
@@ -31,6 +32,7 @@ interface ChatWindowProps {
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
+  onBlockUser?: (userId: string) => void;
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -55,26 +57,49 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   onCancelEdit,
   onLoadMore,
   hasMore,
-  isLoadingMore
+  isLoadingMore,
+  onBlockUser
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [showInfoMenu, setShowInfoMenu] = useState(false);
+  const infoMenuRef = useRef<HTMLDivElement>(null);
+
+  const previousScrollHeightRef = useRef<number>(0);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
-    // Only scroll to bottom if we are not loading more messages
-    if (!isLoadingMore) {
-      scrollToBottom();
+    if (!isLoadingMore && scrollContainerRef.current) {
+      if (previousScrollHeightRef.current > 0) {
+        // We just finished loading more messages, restore scroll position
+        const newScrollHeight = scrollContainerRef.current.scrollHeight;
+        scrollContainerRef.current.scrollTop = newScrollHeight - previousScrollHeightRef.current;
+        previousScrollHeightRef.current = 0; // Reset
+      } else {
+        // Normal scroll to bottom (e.g., new message sent/received)
+        scrollToBottom();
+      }
     }
   }, [messages, isTyping, isLoadingMore]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (infoMenuRef.current && !infoMenuRef.current.contains(event.target as Node)) {
+        setShowInfoMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const handleScroll = () => {
     if (scrollContainerRef.current) {
-      const { scrollTop } = scrollContainerRef.current;
+      const { scrollTop, scrollHeight } = scrollContainerRef.current;
       if (scrollTop === 0 && hasMore && !isLoadingMore && onLoadMore) {
+        previousScrollHeightRef.current = scrollHeight;
         onLoadMore();
       }
     }
@@ -83,7 +108,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   if (!selectedUser) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-10 text-center bg-gray-50/30 dark:bg-gray-950/30">
-        <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/10 rounded-3xl flex items-center justify-center mb-6 text-emerald-600 dark:text-emerald-500 shadow-sm border border-emerald-100/50 dark:border-emerald-900/20">
+        <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/10 rounded-3xl flex items-center justify-center mb-6 text-[#0084ff] dark:text-blue-500 shadow-sm border border-blue-100/50 dark:border-blue-900/20">
           <Send size={32} className="-rotate-12 translate-x-0.5" />
         </div>
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
@@ -112,13 +137,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           
           <div className="relative group cursor-pointer">
             <div 
-              className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shadow-md transform group-hover:scale-105 transition-transform duration-200"
-              style={{ 
+              className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shadow-md transform group-hover:scale-105 transition-transform duration-200 ${
+                selectedUser.profile_color?.startsWith('bg-') ? selectedUser.profile_color : ''
+              }`}
+              style={!selectedUser.profile_color?.startsWith('bg-') ? { 
                 backgroundColor: selectedUser.profile_color || '#10B981',
                 background: `linear-gradient(135deg, ${selectedUser.profile_color || '#10B981'} 0%, #059669 100%)`
-              }}
+              } : {}}
             >
-              {selectedUser.name[0]}
+              {selectedUser.name[0].toUpperCase()}
             </div>
             {isOnline && (
               <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white dark:border-[#0B1120] rounded-full"></span>
@@ -136,10 +163,38 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center">
-          <button className="p-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all">
+        <div className="flex items-center relative" ref={infoMenuRef}>
+          <button 
+            onClick={() => setShowInfoMenu(!showInfoMenu)}
+            className="p-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all"
+          >
             <Info size={20} />
           </button>
+          
+          {showInfoMenu && (
+            <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 overflow-hidden z-50">
+              <Link 
+                href={`/profile/${selectedUser.username}`}
+                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                onClick={() => setShowInfoMenu(false)}
+              >
+                <User size={16} />
+                {lang === "bn" ? "প্রোফাইল দেখুন" : "View Profile"}
+              </Link>
+              <button 
+                onClick={() => {
+                  if (onBlockUser && selectedUser) {
+                    onBlockUser(selectedUser.id);
+                  }
+                  setShowInfoMenu(false);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
+              >
+                <Ban size={16} />
+                {lang === "bn" ? "ব্লক করুন" : "Block User"}
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -160,7 +215,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           </span>
         </div>
 
-        {messages.filter(msg => !msg.deleted_by?.includes(currentUserId)).map((msg, i, filteredMessages) => {
+        {messages.filter(msg => {
+          if (!msg.deleted_by) return true;
+          if (Array.isArray(msg.deleted_by)) return !msg.deleted_by.includes(currentUserId);
+          if (typeof msg.deleted_by === 'string') return !(msg.deleted_by as string).includes(currentUserId);
+          return true;
+        }).map((msg, i, filteredMessages) => {
           const isMe = msg.sender_id === currentUserId;
           const showAvatar = i === 0 || filteredMessages[i-1].sender_id !== msg.sender_id;
           

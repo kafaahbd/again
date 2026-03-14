@@ -38,11 +38,13 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
       {/* Profile Section with Squircle Shape */}
       <div className="relative">
         <div 
-          className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm transform transition-transform group-hover:scale-105"
-          style={{ 
+          className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm transform transition-transform group-hover:scale-105 ${
+            user.profile_color?.startsWith('bg-') ? user.profile_color : ''
+          }`}
+          style={!user.profile_color?.startsWith('bg-') ? { 
             backgroundColor: user.profile_color || '#10B981',
             background: `linear-gradient(135deg, ${user.profile_color || '#10B981'} 0%, #059669 100%)`
-          }}
+          } : {}}
         >
           {user.name[0].toUpperCase()}
         </div>
