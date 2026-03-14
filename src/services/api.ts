@@ -26,6 +26,8 @@ api.interceptors.request.use((config) => {
     console.warn("CSRF token (XSRF-TOKEN) not found in cookies. POST requests may fail.");
   }
   
+  console.log('Request headers:', config.headers);
+  
   // HMAC Signature
   const hmacSecret = process.env.NEXT_PUBLIC_HMAC_SECRET;
   if (hmacSecret && typeof window !== "undefined") {
