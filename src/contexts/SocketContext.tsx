@@ -109,7 +109,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
 
       newSocket.on('receive_message', () => {
-        setUnreadMessagesCount(prev => prev + 1);
+        refreshUnreadCounts();
       });
 
       newSocket.on('messages_seen', () => {

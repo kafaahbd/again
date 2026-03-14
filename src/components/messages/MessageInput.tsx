@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
-import { Send, Smile, Paperclip } from "lucide-react";
+import { Send, Smile, Paperclip, X, Edit2, Reply } from "lucide-react";
+import { Message } from "../../types/messages";
 
 interface MessageInputProps {
   newMessage: string;
@@ -8,6 +9,10 @@ interface MessageInputProps {
   onSend: (e: React.FormEvent) => void;
   onTyping: () => void;
   lang: string;
+  replyingToMessage?: Message | null;
+  editingMessage?: Message | null;
+  onCancelReply?: () => void;
+  onCancelEdit?: () => void;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -15,11 +20,47 @@ const MessageInput: React.FC<MessageInputProps> = ({
   setNewMessage,
   onSend,
   onTyping,
-  lang
+  lang,
+  replyingToMessage,
+  editingMessage,
+  onCancelReply,
+  onCancelEdit
 }) => {
   return (
-    <div className="p-3 md:p-4 bg-white dark:bg-[#0B1120] border-t border-gray-100 dark:border-gray-800/60">
-      <form onSubmit={onSend} className="flex items-center gap-2 md:gap-3 max-w-7xl mx-auto">
+    <div className="p-3 md:p-4 bg-white dark:bg-[#0B1120] border-t border-gray-100 dark:border-gray-800/60 flex flex-col gap-2">
+      {/* Reply Preview */}
+      {replyingToMessage && (
+        <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800/50 p-2 rounded-xl border-l-4 border-emerald-500 text-sm">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <Reply size={16} className="text-emerald-500 flex-shrink-0" />
+            <div className="truncate">
+              <span className="font-semibold text-gray-700 dark:text-gray-300 mr-2">Replying to:</span>
+              <span className="text-gray-500 dark:text-gray-400 truncate">{replyingToMessage.message_text}</span>
+            </div>
+          </div>
+          <button onClick={onCancelReply} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Edit Preview */}
+      {editingMessage && (
+        <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-900/10 p-2 rounded-xl border-l-4 border-amber-500 text-sm">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <Edit2 size={16} className="text-amber-500 flex-shrink-0" />
+            <div className="truncate">
+              <span className="font-semibold text-amber-700 dark:text-amber-500 mr-2">Editing message:</span>
+              <span className="text-amber-600/80 dark:text-amber-400/80 truncate">{editingMessage.message_text}</span>
+            </div>
+          </div>
+          <button onClick={onCancelEdit} className="p-1 text-amber-500 hover:text-amber-700 dark:hover:text-amber-300 rounded-full">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      <form onSubmit={onSend} className="flex items-center gap-2 md:gap-3 max-w-7xl mx-auto w-full">
         
         {/* Attachment Button (Optional but kept for professional look) */}
         <button 

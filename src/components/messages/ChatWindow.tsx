@@ -1,6 +1,7 @@
 "use client";
 import React, { useRef, useEffect } from "react";
 import { ChevronLeft, Send, ShieldCheck, User, Info } from "lucide-react";
+import { isSameDay, format, isToday, isYesterday } from "date-fns";
 import MessageBubble from "./MessageBubble";
 import TypingIndicator from "./TypingIndicator";
 import MessageInput from "./MessageInput";
@@ -19,6 +20,17 @@ interface ChatWindowProps {
   onBack: () => void;
   isOnline: boolean;
   lang: string;
+  onEditMessage?: (message: Message) => void;
+  onDeleteMessage?: (messageId: string, forEveryone: boolean) => void;
+  onReplyMessage?: (message: Message) => void;
+  onReactMessage?: (messageId: string, reaction: string) => void;
+  replyingToMessage?: Message | null;
+  editingMessage?: Message | null;
+  onCancelReply?: () => void;
+  onCancelEdit?: () => void;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -32,17 +44,41 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   onTyping,
   onBack,
   isOnline,
-  lang
+  lang,
+  onEditMessage,
+  onDeleteMessage,
+  onReplyMessage,
+  onReactMessage,
+  replyingToMessage,
+  editingMessage,
+  onCancelReply,
+  onCancelEdit,
+  onLoadMore,
+  hasMore,
+  isLoadingMore
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping]);
+    // Only scroll to bottom if we are not loading more messages
+    if (!isLoadingMore) {
+      scrollToBottom();
+    }
+  }, [messages, isTyping, isLoadingMore]);
+
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      const { scrollTop } = scrollContainerRef.current;
+      if (scrollTop === 0 && hasMore && !isLoadingMore && onLoadMore) {
+        onLoadMore();
+      }
+    }
+  };
 
   if (!selectedUser) {
     return (
@@ -108,26 +144,72 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       </header>
 
       {/* Messages Area */}
-      <main className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-fixed opacity-[0.97] dark:opacity-100">
+      <main 
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-fixed opacity-[0.97] dark:opacity-100"
+      >
+        {isLoadingMore && (
+          <div className="flex justify-center py-2">
+            <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
         <div className="flex justify-center mb-6">
           <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 text-[11px] font-medium rounded-full border border-gray-200/50 dark:border-gray-700/30">
             {lang === "bn" ? "নিরাপদ এন্ড-টু-এন্ড এনক্রিপশন" : "Secure End-to-End Encryption"}
           </span>
         </div>
 
-        {messages.map((msg, i) => {
+        {messages.filter(msg => !msg.deleted_by?.includes(currentUserId)).map((msg, i, filteredMessages) => {
           const isMe = msg.sender_id === currentUserId;
-          const showAvatar = i === 0 || messages[i-1].sender_id !== msg.sender_id;
+          const showAvatar = i === 0 || filteredMessages[i-1].sender_id !== msg.sender_id;
           
+          let showDateSeparator = false;
+          let dateText = "";
+          
+          if (i === 0) {
+            showDateSeparator = true;
+          } else {
+            const prevDate = new Date(filteredMessages[i-1].created_at);
+            const currDate = new Date(msg.created_at);
+            if (!isSameDay(prevDate, currDate)) {
+              showDateSeparator = true;
+            }
+          }
+
+          if (showDateSeparator) {
+            const date = new Date(msg.created_at);
+            if (isToday(date)) {
+              dateText = lang === "bn" ? "আজ" : "Today";
+            } else if (isYesterday(date)) {
+              dateText = lang === "bn" ? "গতকাল" : "Yesterday";
+            } else {
+              dateText = format(date, "MMMM d, yyyy");
+            }
+          }
+
           return (
-            <MessageBubble 
-              key={msg.id}
-              message={msg}
-              isMe={isMe}
-              showAvatar={showAvatar}
-              profileColor={selectedUser.profile_color}
-              initials={selectedUser.name[0]}
-            />
+            <React.Fragment key={msg.id}>
+              {showDateSeparator && (
+                <div className="flex justify-center my-4">
+                  <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 text-[11px] font-medium rounded-full border border-gray-200/50 dark:border-gray-700/30">
+                    {dateText}
+                  </span>
+                </div>
+              )}
+              <MessageBubble 
+                message={msg}
+                isMe={isMe}
+                showAvatar={showAvatar}
+                profileColor={selectedUser.profile_color}
+                initials={selectedUser.name[0]}
+                onEdit={onEditMessage}
+                onDelete={onDeleteMessage}
+                onReply={onReplyMessage}
+                onReact={onReactMessage}
+                repliedMessage={msg.reply_to_message_id ? filteredMessages.find(m => m.id === msg.reply_to_message_id) : undefined}
+              />
+            </React.Fragment>
           );
         })}
         
@@ -148,6 +230,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           onSend={onSendMessage}
           onTyping={onTyping}
           lang={lang}
+          replyingToMessage={replyingToMessage}
+          editingMessage={editingMessage}
+          onCancelReply={onCancelReply}
+          onCancelEdit={onCancelEdit}
         />
         <p className="text-[10px] text-center text-gray-400 mt-2 font-medium">
            {lang === "bn" ? "দ্বীনি শিক্ষার সাথে মেসেজিং" : "Bridging knowledge with communication"}

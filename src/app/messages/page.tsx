@@ -32,6 +32,11 @@ const MessagesContent = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [showMobileList, setShowMobileList] = useState(true);
   
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // --- API: Fetch Conversations ---
@@ -83,22 +88,51 @@ const MessagesContent = () => {
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   // --- Logic: Messages & Socket ---
-  const fetchMessages = useCallback(async (conversationId: string) => {
+  const fetchMessages = useCallback(async (conversationId: string, before?: string) => {
+    if (loadingMessages || (!before && !hasMoreMessages)) return;
+    setLoadingMessages(true);
     try {
-      const res = await api.get(`/messages/conversations/${conversationId}`);
-      setMessages(res.data);
-      await api.put(`/messages/seen/${conversationId}`);
-      refreshUnreadCounts();
-      setUsers(prev => prev.map(u => u.conversation_id === conversationId ? { ...u, unread_count: 0 } : u));
-    } catch (error) { console.error("Messages fetch error:", error); }
-  }, [api, refreshUnreadCounts]);
+      const url = before 
+        ? `/messages/conversations/${conversationId}?before=${before}&limit=50`
+        : `/messages/conversations/${conversationId}?limit=50`;
+      
+      const res = await api.get(url);
+      
+      if (res.data.length < 50) {
+        setHasMoreMessages(false);
+      }
+      
+      if (before) {
+        setMessages(prev => [...res.data, ...prev]);
+      } else {
+        setMessages(res.data);
+      }
+      
+      if (!before) {
+        await api.put(`/messages/seen/${conversationId}`);
+        refreshUnreadCounts();
+        setUsers(prev => prev.map(u => u.conversation_id === conversationId ? { ...u, unread_count: 0 } : u));
+      }
+    } catch (error) { 
+      console.error("Messages fetch error:", error); 
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, [api, refreshUnreadCounts, loadingMessages, hasMoreMessages]);
+
+  const loadMoreMessages = () => {
+    if (messages.length > 0 && selectedUser && hasMoreMessages) {
+      fetchMessages(selectedUser.conversation_id, messages[0].created_at);
+    }
+  };
 
   useEffect(() => {
     if (selectedUser) {
+      setHasMoreMessages(true);
       fetchMessages(selectedUser.conversation_id);
       socket?.emit('mark_seen', { conversationId: selectedUser.conversation_id, receiverId: user?.id });
     }
-  }, [selectedUser, socket, fetchMessages, user?.id]);
+  }, [selectedUser, socket, user?.id]); // Removed fetchMessages from deps to avoid loop
 
   useEffect(() => {
     if (!socket) return;
@@ -122,22 +156,87 @@ const MessagesContent = () => {
       if (selectedUser?.id === data.senderId) setIsTyping(false);
     });
 
+    socket.on('messages_seen', (data: { conversationId: string, seenBy: string }) => {
+      setMessages(prev => prev.map(msg => 
+        (msg.conversation_id === data.conversationId && msg.sender_id !== data.seenBy && msg.status !== 'seen') 
+          ? { ...msg, status: 'seen' } 
+          : msg
+      ));
+    });
+
+    socket.on('message_status_update', (data: { messageId: string, status: string }) => {
+      setMessages(prev => prev.map(msg => 
+        msg.id === data.messageId ? { ...msg, status: data.status as any } : msg
+      ));
+    });
+
+    socket.on('edit_message', (data: { messageId: string, messageText: string }) => {
+      setMessages(prev => prev.map(msg => 
+        msg.id === data.messageId ? { ...msg, message_text: data.messageText, is_edited: true } : msg
+      ));
+    });
+
+    socket.on('delete_message', (data: { messageId: string, forEveryone: boolean }) => {
+      if (data.forEveryone) {
+        setMessages(prev => prev.map(msg => 
+          msg.id === data.messageId ? { ...msg, deleted_for_everyone: true } : msg
+        ));
+      }
+    });
+
+    socket.on('react_message', (data: { messageId: string, reaction: string, userId: string }) => {
+      setMessages(prev => prev.map(msg => {
+        if (msg.id === data.messageId) {
+          const newReactions = { ...(msg.reactions || {}) };
+          if (newReactions[data.userId] === data.reaction) {
+            delete newReactions[data.userId];
+          } else {
+            newReactions[data.userId] = data.reaction;
+          }
+          return { ...msg, reactions: newReactions };
+        }
+        return msg;
+      }));
+    });
+
     return () => {
       socket.off('receive_message');
       socket.off('typing_start');
       socket.off('typing_end');
+      socket.off('messages_seen');
+      socket.off('message_status_update');
+      socket.off('edit_message');
+      socket.off('delete_message');
+      socket.off('react_message');
     };
-  }, [socket, selectedUser, user, api, fetchUsers]);
+  }, [socket, selectedUser, user, api, fetchUsers, refreshUnreadCounts]);
 
   // --- Handlers ---
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedUser || !socket) return;
 
+    if (editingMessage) {
+      // Handle Edit
+      try {
+        await api.put(`/messages/${editingMessage.id}`, { messageText: newMessage.trim() });
+        setMessages(prev => prev.map(msg => 
+          msg.id === editingMessage.id ? { ...msg, message_text: newMessage.trim(), is_edited: true } : msg
+        ));
+        socket.emit('edit_message', { messageId: editingMessage.id, messageText: newMessage.trim(), receiverId: selectedUser.id });
+      } catch (err) {
+        console.error("Error editing message:", err);
+      }
+      setEditingMessage(null);
+      setNewMessage("");
+      return;
+    }
+
     const messageData = {
       receiverId: selectedUser.id,
       conversationId: selectedUser.conversation_id,
-      messageText: newMessage.trim()
+      messageText: newMessage.trim(),
+      replyToMessageId: replyingToMessage?.id
     };
 
     const optimisticMsg: Message = {
@@ -147,13 +246,70 @@ const MessagesContent = () => {
       receiver_id: selectedUser.id,
       message_text: newMessage.trim(),
       status: 'sent',
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      reply_to_message_id: replyingToMessage?.id
     };
 
     setMessages(prev => [...prev, optimisticMsg]);
     setNewMessage("");
+    setReplyingToMessage(null);
     socket.emit('send_message', messageData);
     socket.emit('typing_end', { receiverId: selectedUser.id });
+  };
+
+  const handleEditMessage = (message: Message) => {
+    setEditingMessage(message);
+    setNewMessage(message.message_text);
+    setReplyingToMessage(null);
+  };
+
+  const handleDeleteMessage = async (messageId: string, forEveryone: boolean) => {
+    try {
+      if (forEveryone) {
+        await api.delete(`/messages/${messageId}/everyone`);
+        setMessages(prev => prev.map(msg => 
+          msg.id === messageId ? { ...msg, deleted_for_everyone: true } : msg
+        ));
+        socket?.emit('delete_message', { messageId, forEveryone: true, receiverId: selectedUser?.id });
+      } else {
+        await api.delete(`/messages/${messageId}/me`);
+        setMessages(prev => prev.filter(msg => msg.id !== messageId));
+      }
+    } catch (err) {
+      console.error("Error deleting message:", err);
+    }
+  };
+
+  const handleReplyMessage = (message: Message) => {
+    setReplyingToMessage(message);
+    setEditingMessage(null);
+  };
+
+  const handleReactMessage = async (messageId: string, reaction: string) => {
+    try {
+      await api.post(`/messages/${messageId}/react`, { reaction });
+      
+      // Optimistic update
+      setMessages(prev => prev.map(msg => {
+        if (msg.id === messageId) {
+          const currentReactions = msg.reactions || {};
+          const newReactions = { ...currentReactions };
+          
+          if (newReactions[user!.id] === reaction) {
+            delete newReactions[user!.id]; // Toggle off
+          } else {
+            newReactions[user!.id] = reaction;
+          }
+          
+          return { ...msg, reactions: newReactions };
+        }
+        return msg;
+      }));
+      
+      socket?.emit('react_message', { messageId, reaction, receiverId: selectedUser?.id });
+    } catch (err) {
+      console.error("Error reacting to message:", err);
+    }
   };
 
   const handleTyping = () => {
@@ -248,6 +404,17 @@ const MessagesContent = () => {
                 onBack={() => setShowMobileList(true)}
                 isOnline={onlineUsers.has(selectedUser.id)}
                 lang={lang}
+                onEditMessage={handleEditMessage}
+                onDeleteMessage={handleDeleteMessage}
+                onReplyMessage={handleReplyMessage}
+                onReactMessage={handleReactMessage}
+                replyingToMessage={replyingToMessage}
+                editingMessage={editingMessage}
+                onCancelReply={() => setReplyingToMessage(null)}
+                onCancelEdit={() => { setEditingMessage(null); setNewMessage(""); }}
+                onLoadMore={loadMoreMessages}
+                hasMore={hasMoreMessages}
+                isLoadingMore={loadingMessages}
               />
             </motion.div>
           ) : (
