@@ -120,6 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                         config.headers.set("X-CSRF-Token", csrfTokenCache);
                         config.headers.set("x-xsrf-token", csrfTokenCache);
                     } else {
+                        config.headers = config.headers || {};
                         config.headers["X-CSRF-Token"] = csrfTokenCache;
                         config.headers["x-xsrf-token"] = csrfTokenCache;
                     }
