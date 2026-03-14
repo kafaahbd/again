@@ -3,14 +3,7 @@ import React from "react";
 import { Check, CheckCheck } from "lucide-react";
 import { format } from "date-fns";
 
-interface Message {
-  id: string;
-  sender_id: string;
-  receiver_id: string;
-  message_text: string;
-  status: 'sent' | 'delivered' | 'seen';
-  created_at: string;
-}
+import { Message } from "../../types/messages";
 
 interface MessageBubbleProps {
   message: Message;

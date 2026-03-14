@@ -2,15 +2,7 @@
 import React from "react";
 import { format } from "date-fns";
 
-interface ChatUser {
-  id: string;
-  name: string;
-  username: string;
-  profile_color: string;
-  last_message?: string;
-  last_message_time?: string;
-  unread_count?: number;
-}
+import { ChatUser } from "../../types/messages";
 
 interface ConversationItemProps {
   user: ChatUser;

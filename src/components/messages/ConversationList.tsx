@@ -3,15 +3,7 @@ import React from "react";
 import { User } from "lucide-react";
 import ConversationItem from "./ConversationItem";
 
-interface ChatUser {
-  id: string;
-  name: string;
-  username: string;
-  profile_color: string;
-  last_message?: string;
-  last_message_time?: string;
-  unread_count?: number;
-}
+import { ChatUser } from "../../types/messages";
 
 interface ConversationListProps {
   users: ChatUser[];

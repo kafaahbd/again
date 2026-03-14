@@ -5,21 +5,7 @@ import MessageBubble from "./MessageBubble";
 import TypingIndicator from "./TypingIndicator";
 import MessageInput from "./MessageInput";
 
-interface ChatUser {
-  id: string;
-  name: string;
-  username: string;
-  profile_color: string;
-}
-
-interface Message {
-  id: string;
-  sender_id: string;
-  receiver_id: string;
-  message_text: string;
-  status: 'sent' | 'delivered' | 'seen';
-  created_at: string;
-}
+import { ChatUser, Message } from "../../types/messages";
 
 interface ChatWindowProps {
   selectedUser: ChatUser | null;

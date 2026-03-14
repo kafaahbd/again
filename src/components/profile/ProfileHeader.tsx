@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Edit3, LayoutDashboard, LogOut, MessageSquare, ShieldAlert } from "lucide-react";
+import { Edit3, LayoutDashboard, LogOut, ShieldAlert, MessageSquare } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 

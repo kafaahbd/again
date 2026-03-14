@@ -9,24 +9,7 @@ import ConversationList from "../../components/messages/ConversationList";
 import ChatWindow from "../../components/messages/ChatWindow";
 import UserSearch from "../../components/messages/UserSearch";
 
-interface ChatUser {
-  id: string;
-  name: string;
-  username: string;
-  profile_color: string;
-  last_message?: string;
-  last_message_time?: string;
-  unread_count?: number;
-}
-
-interface Message {
-  id: string;
-  sender_id: string;
-  receiver_id: string;
-  message_text: string;
-  status: 'sent' | 'delivered' | 'seen';
-  created_at: string;
-}
+import { ChatUser, Message } from "../../types/messages";
 
 const MessagesContent = () => {
   const { user, api } = useAuth();
@@ -35,6 +18,7 @@ const MessagesContent = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
   const targetUserId = searchParams.get("userId");
+  const targetConvId = searchParams.get("conversationId");
 
   const [users, setUsers] = useState<ChatUser[]>([]);
   const [searchResults, setSearchResults] = useState<ChatUser[]>([]);
@@ -50,35 +34,95 @@ const MessagesContent = () => {
 
   const fetchUsers = React.useCallback(async () => {
     try {
-      const res = await api.get("/messages/users");
-      setUsers(res.data);
+      const res = await api.get("/messages/conversations");
+      const mappedUsers = res.data.map((c: {
+        id: string;
+        other_user_id: string;
+        other_user_name: string;
+        other_user_username: string;
+        other_user_profile_color: string;
+        last_message: string;
+        last_message_time: string;
+        unread_count: number;
+      }) => ({
+        id: c.other_user_id,
+        conversation_id: c.id,
+        name: c.other_user_name,
+        username: c.other_user_username,
+        profile_color: c.other_user_profile_color,
+        last_message: c.last_message,
+        last_message_time: c.last_message_time,
+        unread_count: c.unread_count
+      }));
+      setUsers(mappedUsers);
       
-      // If targetUserId is provided in URL, select that user
-      if (targetUserId) {
-        const targetUser = res.data.find((u: ChatUser) => u.id === targetUserId);
+      // If targetConvId is provided in URL
+      if (targetConvId) {
+        const targetConv = mappedUsers.find((u: ChatUser) => u.conversation_id === targetConvId);
+        if (targetConv) {
+          setSelectedUser(targetConv);
+          setShowMobileList(false);
+        }
+      } 
+      // Else if targetUserId is provided in URL
+      else if (targetUserId) {
+        const targetUser = mappedUsers.find((u: ChatUser) => u.id === targetUserId);
         if (targetUser) {
           setSelectedUser(targetUser);
           setShowMobileList(false);
         } else {
-          // If not in conversation list, fetch user details
+          // Create conversation if it doesn't exist
           try {
-            const searchRes = await api.get(`/messages/search?q=${targetUserId}`);
-            const foundUser = searchRes.data.find((u: ChatUser) => u.id === targetUserId);
+            const convRes = await api.post("/messages/conversations", { otherUserId: targetUserId });
+            const conv = convRes.data;
+            
+            // Fetch user details to show in header before list refreshes
+            const userRes = await api.get(`/messages/search?q=${targetUserId}`);
+            const foundUser = userRes.data.find((u: any) => u.id === targetUserId);
+            
             if (foundUser) {
-              setSelectedUser(foundUser);
+              const newChatUser: ChatUser = {
+                id: foundUser.id,
+                conversation_id: conv.id,
+                name: foundUser.name,
+                username: foundUser.username,
+                profile_color: foundUser.profile_color
+              };
+              setSelectedUser(newChatUser);
               setShowMobileList(false);
+              // Refresh list to include new conversation
+              const refreshRes = await api.get("/messages/conversations");
+              setUsers(refreshRes.data.map((c: {
+                id: string;
+                other_user_id: string;
+                other_user_name: string;
+                other_user_username: string;
+                other_user_profile_color: string;
+                last_message: string;
+                last_message_time: string;
+                unread_count: number;
+              }) => ({
+                id: c.other_user_id,
+                conversation_id: c.id,
+                name: c.other_user_name,
+                username: c.other_user_username,
+                profile_color: c.other_user_profile_color,
+                last_message: c.last_message,
+                last_message_time: c.last_message_time,
+                unread_count: c.unread_count
+              })));
             }
           } catch (err) {
-            console.error("Error fetching target user:", err);
+            console.error("Error creating conversation:", err);
           }
         }
       }
     } catch (error) {
-      console.error("Error fetching users:", error);
+      console.error("Error fetching conversations:", error);
     } finally {
       setLoading(false);
     }
-  }, [api, targetUserId]);
+  }, [api, targetUserId, targetConvId]);
 
   useEffect(() => {
     fetchUsers();
@@ -100,17 +144,17 @@ const MessagesContent = () => {
     }
   }, [searchQuery, api]);
 
-  const fetchMessages = React.useCallback(async (otherUserId: string) => {
+  const fetchMessages = React.useCallback(async (conversationId: string) => {
     try {
-      const res = await api.get(`/messages/${otherUserId}`);
+      const res = await api.get(`/messages/conversations/${conversationId}`);
       setMessages(res.data);
       
       // Mark as seen
-      await api.put("/messages/seen", { senderId: otherUserId });
+      await api.put(`/messages/seen/${conversationId}`);
       refreshUnreadCounts();
       
       // Update local users list unread count
-      setUsers(prev => prev.map(u => u.id === otherUserId ? { ...u, unread_count: 0 } : u));
+      setUsers(prev => prev.map(u => u.conversation_id === conversationId ? { ...u, unread_count: 0 } : u));
     } catch (error) {
       console.error("Error fetching messages:", error);
     }
@@ -118,10 +162,10 @@ const MessagesContent = () => {
 
   useEffect(() => {
     if (selectedUser) {
-      fetchMessages(selectedUser.id);
+      fetchMessages(selectedUser.conversation_id);
       
       if (socket) {
-        socket.emit('mark_seen', { senderId: selectedUser.id, receiverId: user?.id });
+        socket.emit('mark_seen', { conversationId: selectedUser.conversation_id, receiverId: user?.id });
       }
     }
   }, [selectedUser, socket, fetchMessages, user?.id]);
@@ -130,24 +174,22 @@ const MessagesContent = () => {
     if (!socket) return;
 
     const handleReceiveMessage = (message: Message) => {
-      if (selectedUser && (message.sender_id === selectedUser.id || message.receiver_id === selectedUser.id)) {
+      if (selectedUser && message.conversation_id === selectedUser.conversation_id) {
         setMessages(prev => [...prev, message]);
         if (message.sender_id === selectedUser.id) {
-          api.put("/messages/seen", { senderId: selectedUser.id });
-          socket.emit('mark_seen', { senderId: selectedUser.id, receiverId: user?.id });
+          api.put(`/messages/seen/${selectedUser.conversation_id}`);
+          socket.emit('mark_seen', { conversationId: selectedUser.conversation_id, receiverId: user?.id });
         }
       }
       fetchUsers(); // Refresh conversation list
     };
 
     const handleMessageStatusUpdate = (data: { messageId: string, status: 'sent' | 'delivered' | 'seen', receiverId: string }) => {
-      if (selectedUser && data.receiverId === selectedUser.id) {
-        setMessages(prev => prev.map(m => m.id === data.messageId ? { ...m, status: data.status } : m));
-      }
+      setMessages(prev => prev.map(m => m.id === data.messageId ? { ...m, status: data.status } : m));
     };
 
-    const handleMessagesSeen = (data: { senderId: string, receiverId: string }) => {
-      if (selectedUser && data.senderId === user?.id && data.receiverId === selectedUser.id) {
+    const handleMessagesSeen = (data: { conversationId: string, seenBy: string }) => {
+      if (selectedUser && data.conversationId === selectedUser.conversation_id && data.seenBy === selectedUser.id) {
         setMessages(prev => prev.map(m => ({ ...m, status: 'seen' })));
       }
     };
@@ -169,7 +211,7 @@ const MessagesContent = () => {
       socket.off('typing_start');
       socket.off('typing_end');
     };
-  }, [socket, selectedUser, user]);
+  }, [socket, selectedUser, user, api, fetchUsers]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,6 +219,7 @@ const MessagesContent = () => {
 
     const messageData = {
       receiverId: selectedUser.id,
+      conversationId: selectedUser.conversation_id,
       messageText: newMessage.trim()
     };
 
@@ -184,6 +227,7 @@ const MessagesContent = () => {
     const tempId = Date.now().toString();
     const optimisticMsg: Message = {
       id: tempId,
+      conversation_id: selectedUser.conversation_id,
       sender_id: user?.id || '',
       receiver_id: selectedUser.id,
       message_text: newMessage.trim(),
@@ -209,12 +253,31 @@ const MessagesContent = () => {
     }, 2000);
   };
 
-  const selectUser = (u: ChatUser) => {
-    setSelectedUser(u);
+  const selectUser = async (u: any) => {
+    // If it's a user from search, we need to get/create conversation first
+    if (!u.conversation_id) {
+      try {
+        const res = await api.post("/messages/conversations", { otherUserId: u.id });
+        const conv = res.data;
+        const chatUser: ChatUser = {
+          id: u.id,
+          conversation_id: conv.id,
+          name: u.name,
+          username: u.username,
+          profile_color: u.profile_color
+        };
+        setSelectedUser(chatUser);
+        router.push(`/messages?conversationId=${conv.id}`, { scroll: false });
+      } catch (err) {
+        console.error("Error selecting user:", err);
+      }
+    } else {
+      setSelectedUser(u);
+      router.push(`/messages?conversationId=${u.conversation_id}`, { scroll: false });
+    }
     setShowMobileList(false);
     setSearchQuery("");
     setSearchResults([]);
-    router.push(`/messages?userId=${u.id}`, { scroll: false });
   };
 
   if (!user) {

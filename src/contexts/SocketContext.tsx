@@ -2,7 +2,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
-import axios from 'axios';
 
 interface Notification {
   id: string;
@@ -35,7 +34,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  const refreshUnreadCounts = async () => {
+  const refreshUnreadCounts = React.useCallback(async () => {
     if (!token) return;
     try {
       const [msgRes, notifRes, notifListRes] = await Promise.all([
@@ -49,13 +48,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (error) {
       console.error('Error fetching unread counts:', error);
     }
-  };
+  }, [token, api]);
 
   // Helper function to convert VAPID key
   const urlBase64ToUint8Array = (base64String: string) => {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding)
-      .replace(/\-/g, '+')
+      .replace(/-/g, '+')
       .replace(/_/g, '/');
 
     const rawData = window.atob(base64);
@@ -67,7 +66,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return outputArray;
   };
 
-  const subscribeToPushNotifications = async () => {
+  const subscribeToPushNotifications = React.useCallback(async () => {
     if (!token || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
     try {
@@ -85,7 +84,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (error) {
       console.error('Error subscribing to push notifications:', error);
     }
-  };
+  }, [token, api]);
 
   useEffect(() => {
     if (user && token) {
@@ -111,6 +110,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       newSocket.on('receive_message', () => {
         setUnreadMessagesCount(prev => prev + 1);
+      });
+
+      newSocket.on('messages_seen', () => {
+        refreshUnreadCounts();
       });
 
       newSocket.on('new_notification', (data: any) => {
@@ -149,7 +152,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setUnreadNotificationsCount(0);
       setNotifications([]);
     }
-  }, [user, token]);
+  }, [user, token, refreshUnreadCounts, subscribeToPushNotifications]);
 
   const markNotificationAsRead = async (id: string) => {
     if (!token) return;
