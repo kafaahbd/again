@@ -11,6 +11,7 @@ interface Notification {
   data: any;
   is_read: boolean;
   created_at: string;
+  related_id?: string;
 }
 
 interface SocketContextType {

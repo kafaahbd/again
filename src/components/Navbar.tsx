@@ -12,6 +12,8 @@ import { BookOpen, MessageSquare, Zap, Settings, User, LogOut, X, Menu, Bell, Ma
 import { getProfileColor } from '../typescriptfile/utils';
 import { useSocket } from '../contexts/SocketContext';
 
+
+
 const Navbar: React.FC = () => {
   const { t } = useLanguage();
   const pathname = usePathname();
@@ -81,19 +83,20 @@ const Navbar: React.FC = () => {
               <div className="hidden md:flex items-center bg-gray-100 dark:bg-gray-900 p-1 rounded-xl mr-2">
                 <LanguageToggle />
                 <ThemeToggle />
-              </div>
-
-              {/* Messages & Notifications */}
-              {user && (
-                <div className="flex items-center gap-1 md:gap-2 mr-1 md:mr-2">
-                  <Link href="/messages" className="relative p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-xl transition-all">
-                    <Mail size={20} />
-                    {unreadMessagesCount > 0 && (
-                      <span className="absolute top-1 right-1 h-4 w-4 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full">
-                        {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
-                      </span>
-                    )}
-                  </Link>
+                            {/* Messages & Notifications */}
+              <div className="flex items-center gap-1 md:gap-2 mr-1 md:mr-2">
+                <Link 
+                  href={user ? "/messages" : "/login"} 
+                  className="relative p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-xl transition-all"
+                >
+                  <Mail size={20} />
+                  {user && unreadMessagesCount > 0 && (
+                    <span className="absolute top-1 right-1 h-4 w-4 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full">
+                      {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                    </span>
+                  )}
+                </Link>
+                {user && (
                   <div className="relative">
                     <button 
                       onClick={() => setShowNotifications(!showNotifications)}
@@ -157,8 +160,8 @@ const Navbar: React.FC = () => {
                       )}
                     </AnimatePresence>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Profile/Settings Icon for Mobile (Drawer Trigger) */}
               <button 
@@ -179,6 +182,7 @@ const Navbar: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
         </div>
       </nav>
 
