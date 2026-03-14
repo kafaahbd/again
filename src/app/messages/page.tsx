@@ -1,6 +1,7 @@
 "use client";
-import React, { useState, useEffect, useRef, Suspense } from "react";
+import React, { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../../contexts/AuthContext";
 import { useSocket } from "../../contexts/SocketContext";
 import { useLanguage } from "../../contexts/LanguageContext";
@@ -8,8 +9,8 @@ import SEO from "../../components/SEO";
 import ConversationList from "../../components/messages/ConversationList";
 import ChatWindow from "../../components/messages/ChatWindow";
 import UserSearch from "../../components/messages/UserSearch";
-
 import { ChatUser, Message } from "../../types/messages";
+import { MessageSquare } from "lucide-react";
 
 const MessagesContent = () => {
   const { user, api } = useAuth();
@@ -17,6 +18,7 @@ const MessagesContent = () => {
   const { lang } = useLanguage();
   const searchParams = useSearchParams();
   const router = useRouter();
+  
   const targetUserId = searchParams.get("userId");
   const targetConvId = searchParams.get("conversationId");
 
@@ -32,19 +34,11 @@ const MessagesContent = () => {
   
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchUsers = React.useCallback(async () => {
+  // --- API: Fetch Conversations ---
+  const fetchUsers = useCallback(async () => {
     try {
       const res = await api.get("/messages/conversations");
-      const mappedUsers = res.data.map((c: {
-        id: string;
-        other_user_id: string;
-        other_user_name: string;
-        other_user_username: string;
-        other_user_profile_color: string;
-        last_message: string;
-        last_message_time: string;
-        unread_count: number;
-      }) => ({
+      const mappedUsers = res.data.map((c: any) => ({
         id: c.other_user_id,
         conversation_id: c.id,
         name: c.other_user_name,
@@ -56,163 +50,86 @@ const MessagesContent = () => {
       }));
       setUsers(mappedUsers);
       
-      // If targetConvId is provided in URL
+      // Handle URL targets (Conversation or Direct User)
       if (targetConvId) {
         const targetConv = mappedUsers.find((u: ChatUser) => u.conversation_id === targetConvId);
-        if (targetConv) {
-          setSelectedUser(targetConv);
-          setShowMobileList(false);
-        }
-      } 
-      // Else if targetUserId is provided in URL
-      else if (targetUserId) {
+        if (targetConv) { setSelectedUser(targetConv); setShowMobileList(false); }
+      } else if (targetUserId) {
         const targetUser = mappedUsers.find((u: ChatUser) => u.id === targetUserId);
-        if (targetUser) {
-          setSelectedUser(targetUser);
-          setShowMobileList(false);
+        if (targetUser) { 
+          setSelectedUser(targetUser); 
+          setShowMobileList(false); 
         } else {
-          // Create conversation if it doesn't exist
-          try {
-            const convRes = await api.post("/messages/conversations", { otherUserId: targetUserId });
-            const conv = convRes.data;
-            
-            // Fetch user details to show in header before list refreshes
-            const userRes = await api.get(`/messages/search?q=${targetUserId}`);
-            const foundUser = userRes.data.find((u: any) => u.id === targetUserId);
-            
-            if (foundUser) {
-              const newChatUser: ChatUser = {
-                id: foundUser.id,
-                conversation_id: conv.id,
-                name: foundUser.name,
-                username: foundUser.username,
-                profile_color: foundUser.profile_color
-              };
-              setSelectedUser(newChatUser);
-              setShowMobileList(false);
-              // Refresh list to include new conversation
-              const refreshRes = await api.get("/messages/conversations");
-              setUsers(refreshRes.data.map((c: {
-                id: string;
-                other_user_id: string;
-                other_user_name: string;
-                other_user_username: string;
-                other_user_profile_color: string;
-                last_message: string;
-                last_message_time: string;
-                unread_count: number;
-              }) => ({
-                id: c.other_user_id,
-                conversation_id: c.id,
-                name: c.other_user_name,
-                username: c.other_user_username,
-                profile_color: c.other_user_profile_color,
-                last_message: c.last_message,
-                last_message_time: c.last_message_time,
-                unread_count: c.unread_count
-              })));
-            }
-          } catch (err) {
-            console.error("Error creating conversation:", err);
+          // Create new conversation logic
+          const convRes = await api.post("/messages/conversations", { otherUserId: targetUserId });
+          const userRes = await api.get(`/messages/search?q=${targetUserId}`);
+          const foundUser = userRes.data.find((u: any) => u.id === targetUserId);
+          if (foundUser) {
+            setSelectedUser({
+              id: foundUser.id,
+              conversation_id: convRes.data.id,
+              name: foundUser.name,
+              username: foundUser.username,
+              profile_color: foundUser.profile_color
+            });
+            setShowMobileList(false);
           }
         }
       }
-    } catch (error) {
-      console.error("Error fetching conversations:", error);
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { console.error("Conversations error:", error);
+    } finally { setLoading(false); }
   }, [api, targetUserId, targetConvId]);
 
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
-  useEffect(() => {
-    if (searchQuery.length > 1) {
-      const delayDebounceFn = setTimeout(async () => {
-        try {
-          const res = await api.get(`/messages/search?q=${searchQuery}`);
-          setSearchResults(res.data);
-        } catch (error) {
-          console.error("Search error:", error);
-        }
-      }, 300);
-      return () => clearTimeout(delayDebounceFn);
-    } else {
-      setSearchResults([]);
-    }
-  }, [searchQuery, api]);
-
-  const fetchMessages = React.useCallback(async (conversationId: string) => {
+  // --- Logic: Messages & Socket ---
+  const fetchMessages = useCallback(async (conversationId: string) => {
     try {
       const res = await api.get(`/messages/conversations/${conversationId}`);
       setMessages(res.data);
-      
-      // Mark as seen
       await api.put(`/messages/seen/${conversationId}`);
       refreshUnreadCounts();
-      
-      // Update local users list unread count
       setUsers(prev => prev.map(u => u.conversation_id === conversationId ? { ...u, unread_count: 0 } : u));
-    } catch (error) {
-      console.error("Error fetching messages:", error);
-    }
+    } catch (error) { console.error("Messages fetch error:", error); }
   }, [api, refreshUnreadCounts]);
 
   useEffect(() => {
     if (selectedUser) {
       fetchMessages(selectedUser.conversation_id);
-      
-      if (socket) {
-        socket.emit('mark_seen', { conversationId: selectedUser.conversation_id, receiverId: user?.id });
-      }
+      socket?.emit('mark_seen', { conversationId: selectedUser.conversation_id, receiverId: user?.id });
     }
   }, [selectedUser, socket, fetchMessages, user?.id]);
 
   useEffect(() => {
     if (!socket) return;
 
-    const handleReceiveMessage = (message: Message) => {
-      if (selectedUser && message.conversation_id === selectedUser.conversation_id) {
+    socket.on('receive_message', (message: Message) => {
+      if (selectedUser?.conversation_id === message.conversation_id) {
         setMessages(prev => [...prev, message]);
         if (message.sender_id === selectedUser.id) {
           api.put(`/messages/seen/${selectedUser.conversation_id}`);
           socket.emit('mark_seen', { conversationId: selectedUser.conversation_id, receiverId: user?.id });
         }
       }
-      fetchUsers(); // Refresh conversation list
-    };
-
-    const handleMessageStatusUpdate = (data: { messageId: string, status: 'sent' | 'delivered' | 'seen', receiverId: string }) => {
-      setMessages(prev => prev.map(m => m.id === data.messageId ? { ...m, status: data.status } : m));
-    };
-
-    const handleMessagesSeen = (data: { conversationId: string, seenBy: string }) => {
-      if (selectedUser && data.conversationId === selectedUser.conversation_id && data.seenBy === selectedUser.id) {
-        setMessages(prev => prev.map(m => ({ ...m, status: 'seen' })));
-      }
-    };
-
-    socket.on('receive_message', handleReceiveMessage);
-    socket.on('message_status_update', handleMessageStatusUpdate);
-    socket.on('messages_seen', handleMessagesSeen);
-    socket.on('typing_start', (data: { senderId: string }) => {
-      if (selectedUser && data.senderId === selectedUser.id) setIsTyping(true);
+      fetchUsers();
     });
+
+    socket.on('typing_start', (data: { senderId: string }) => {
+      if (selectedUser?.id === data.senderId) setIsTyping(true);
+    });
+
     socket.on('typing_end', (data: { senderId: string }) => {
-      if (selectedUser && data.senderId === selectedUser.id) setIsTyping(false);
+      if (selectedUser?.id === data.senderId) setIsTyping(false);
     });
 
     return () => {
-      socket.off('receive_message', handleReceiveMessage);
-      socket.off('message_status_update', handleMessageStatusUpdate);
-      socket.off('messages_seen', handleMessagesSeen);
+      socket.off('receive_message');
       socket.off('typing_start');
       socket.off('typing_end');
     };
   }, [socket, selectedUser, user, api, fetchUsers]);
 
+  // --- Handlers ---
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedUser || !socket) return;
@@ -223,10 +140,8 @@ const MessagesContent = () => {
       messageText: newMessage.trim()
     };
 
-    // Optimistic update
-    const tempId = Date.now().toString();
     const optimisticMsg: Message = {
-      id: tempId,
+      id: Date.now().toString(),
       conversation_id: selectedUser.conversation_id,
       sender_id: user?.id || '',
       receiver_id: selectedUser.id,
@@ -234,107 +149,129 @@ const MessagesContent = () => {
       status: 'sent',
       created_at: new Date().toISOString()
     };
+
     setMessages(prev => [...prev, optimisticMsg]);
     setNewMessage("");
-
     socket.emit('send_message', messageData);
     socket.emit('typing_end', { receiverId: selectedUser.id });
   };
 
   const handleTyping = () => {
     if (!socket || !selectedUser) return;
-    
     socket.emit('typing_start', { receiverId: selectedUser.id });
-    
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    
     typingTimeoutRef.current = setTimeout(() => {
       socket.emit('typing_end', { receiverId: selectedUser.id });
     }, 2000);
   };
 
   const selectUser = async (u: any) => {
-    // If it's a user from search, we need to get/create conversation first
     if (!u.conversation_id) {
       try {
         const res = await api.post("/messages/conversations", { otherUserId: u.id });
-        const conv = res.data;
-        const chatUser: ChatUser = {
-          id: u.id,
-          conversation_id: conv.id,
-          name: u.name,
-          username: u.username,
-          profile_color: u.profile_color
-        };
+        const chatUser: ChatUser = { ...u, conversation_id: res.data.id };
         setSelectedUser(chatUser);
-        router.push(`/messages?conversationId=${conv.id}`, { scroll: false });
-      } catch (err) {
-        console.error("Error selecting user:", err);
-      }
+        router.push(`/messages?conversationId=${res.data.id}`, { scroll: false });
+      } catch (err) { console.error(err); }
     } else {
       setSelectedUser(u);
       router.push(`/messages?conversationId=${u.conversation_id}`, { scroll: false });
     }
     setShowMobileList(false);
     setSearchQuery("");
-    setSearchResults([]);
   };
 
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <p className="text-gray-500 dark:text-gray-400">Please login to view messages.</p>
+  if (!user) return (
+    <div className="flex flex-col items-center justify-center min-h-[70vh] text-center p-6">
+      <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/20 rounded-full flex items-center justify-center mb-4">
+        <MessageSquare className="text-emerald-600" size={40} />
       </div>
-    );
-  }
+      <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Login Required</h2>
+      <p className="text-gray-500 max-w-xs">Please login to your Kafa'ah account to start safe and private conversations.</p>
+    </div>
+  );
 
   return (
-    <div className="flex h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-950 overflow-hidden">
+    <div className="flex h-[calc(100vh-64px)] bg-gray-50 dark:bg-[#0B1120] overflow-hidden transition-colors duration-500">
       <SEO title={lang === "bn" ? "মেসেজ - কাফআহ" : "Messages - Kafa'ah"} />
       
-      {/* Left Sidebar - Conversation List */}
-      <div className={`${showMobileList ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-80 lg:w-96 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 transition-all`}>
-        <UserSearch 
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          searchResults={searchResults}
-          onSelectUser={selectUser}
-          lang={lang}
-        />
+      {/* --- Left Sidebar: Conversation List --- */}
+      <motion.div 
+        className={`${showMobileList ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-80 lg:w-96 border-r border-gray-100 dark:border-gray-800/60 bg-white dark:bg-[#0F172A] z-20`}
+        initial={false}
+      >
+        <div className="p-4 border-b border-gray-50 dark:border-gray-800/50">
+          <h1 className="text-xl font-black text-gray-900 dark:text-white tracking-tight mb-4 uppercase">
+            {lang === "bn" ? "চ্যাট" : "Chats"}
+          </h1>
+          <UserSearch 
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            searchResults={searchResults}
+            onSelectUser={selectUser}
+            lang={lang}
+          />
+        </div>
 
-        <ConversationList 
-          users={users}
-          selectedUserId={selectedUser?.id}
-          onlineUsers={onlineUsers}
-          onSelectUser={selectUser}
-          loading={loading}
-          lang={lang}
-        />
-      </div>
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <ConversationList 
+            users={users}
+            selectedUserId={selectedUser?.id}
+            onlineUsers={onlineUsers}
+            onSelectUser={selectUser}
+            loading={loading}
+            lang={lang}
+          />
+        </div>
+      </motion.div>
 
-      {/* Right Chat Window */}
-      <div className={`${!showMobileList ? 'flex' : 'hidden'} md:flex flex-col flex-1 bg-white dark:bg-gray-900 relative`}>
-        <ChatWindow 
-          selectedUser={selectedUser}
-          messages={messages}
-          currentUserId={user.id}
-          isTyping={isTyping}
-          newMessage={newMessage}
-          setNewMessage={setNewMessage}
-          onSendMessage={handleSendMessage}
-          onTyping={handleTyping}
-          onBack={() => setShowMobileList(true)}
-          isOnline={selectedUser ? onlineUsers.has(selectedUser.id) : false}
-          lang={lang}
-        />
-      </div>
+      {/* --- Right Section: Chat Window --- */}
+      <main className={`${!showMobileList ? 'flex' : 'hidden'} md:flex flex-col flex-1 bg-white dark:bg-[#0B1120] relative`}>
+        <AnimatePresence mode="wait">
+          {selectedUser ? (
+            <motion.div 
+              key={selectedUser.id}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="flex flex-col h-full"
+            >
+              <ChatWindow 
+                selectedUser={selectedUser}
+                messages={messages}
+                currentUserId={user.id}
+                isTyping={isTyping}
+                newMessage={newMessage}
+                setNewMessage={setNewMessage}
+                onSendMessage={handleSendMessage}
+                onTyping={handleTyping}
+                onBack={() => setShowMobileList(true)}
+                isOnline={onlineUsers.has(selectedUser.id)}
+                lang={lang}
+              />
+            </motion.div>
+          ) : (
+            <div className="hidden md:flex flex-col items-center justify-center h-full text-center p-12">
+              <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-3xl flex items-center justify-center mb-6 rotate-12">
+                <MessageSquare className="text-gray-400 dark:text-gray-600" size={48} />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                {lang === "bn" ? "আপনার ভাই/বোনদের সাথে কথা বলুন" : "Select a conversation"}
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 max-w-sm">
+                {lang === "bn" ? "বাম দিক থেকে কাউকে সিলেক্ট করুন অথবা নতুন ইউজার খুঁজুন।" : "Choose someone from the list to start a secure discussion."}
+              </p>
+            </div>
+          )}
+        </AnimatePresence>
+      </main>
     </div>
   );
 };
 
 export default function MessagesPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+    <Suspense fallback={<div className="flex items-center justify-center h-screen bg-white dark:bg-gray-950 text-emerald-600 font-bold">LOADING KAFA'AH...</div>}>
       <MessagesContent />
     </Suspense>
   );
