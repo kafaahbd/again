@@ -59,27 +59,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const [isLoading, setIsLoading] = useState(false);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
-    // Response interceptor for Token Refresh (moved to api.ts or kept here if it needs state)
+    // Response interceptor for Token Refresh
     useEffect(() => {
-        const interceptor = api.interceptors.response.use(
+        // Configure global axios
+        axios.defaults.withCredentials = true;
+        axios.defaults.baseURL = process.env.NEXT_PUBLIC_API_URL || "/api";
+
+        const getCookie = (name: string) => {
+            if (typeof document === "undefined") return null;
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop()?.split(";").shift();
+            return null;
+        };
+
+        // Request interceptor
+        const requestInterceptor = axios.interceptors.request.use((config) => {
+            const csrfToken = getCookie("XSRF-TOKEN");
+            if (csrfToken) {
+                config.headers["X-CSRF-Token"] = csrfToken;
+                config.headers["x-xsrf-token"] = csrfToken;
+            }
+            return config;
+        });
+
+        // Response interceptor
+        const responseInterceptor = axios.interceptors.response.use(
             (response) => response,
             async (error) => {
                 const originalRequest = error.config;
                 if (error.response?.status === 401 && !originalRequest._retry) {
                     originalRequest._retry = true;
                     try {
-                        await api.post(`/auth/refresh-token`, {}, { withCredentials: true });
-                        return api(originalRequest);
+                        await axios.post(`/auth/refresh-token`, {}, { withCredentials: true });
+                        return axios(originalRequest);
                     } catch (refreshError) {
                         setUser(null);
                         setToken(null);
                         return Promise.reject(refreshError);
                     }
                 }
+                if (error.response?.status === 403 && !originalRequest._retry) {
+                    originalRequest._retry = true;
+                    try {
+                        await axios.get('/auth/csrf-token');
+                        const csrfToken = getCookie('XSRF-TOKEN');
+                        if (csrfToken) {
+                            originalRequest.headers['X-CSRF-Token'] = csrfToken;
+                            originalRequest.headers['x-xsrf-token'] = csrfToken;
+                            return axios(originalRequest);
+                        }
+                    } catch (refreshError) {
+                        return Promise.reject(refreshError);
+                    }
+                }
                 return Promise.reject(error);
             }
         );
-        return () => api.interceptors.response.eject(interceptor);
+
+        return () => {
+            axios.interceptors.request.eject(requestInterceptor);
+            axios.interceptors.response.eject(responseInterceptor);
+        };
     }, []);
 
     useEffect(() => {
