@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Edit3, LayoutDashboard, LogOut, ShieldAlert } from "lucide-react";
+import { Edit3, LayoutDashboard, LogOut, MessageSquare, ShieldAlert } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 
@@ -51,13 +51,22 @@ const ProfileHeader = ({ isOwnProfile, profileUser, onEdit, onBlock }: ProfileHe
             </button>
           </>
         ) : (
-          <button
-            onClick={onBlock}
-            className="flex-1 md:flex-none px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-sm flex items-center gap-2"
-          >
-            <ShieldAlert size={14} />
-            {lang === "bn" ? "ব্লক করুন" : "Block"}
-          </button>
+          <>
+            <Link
+              href={`/messages?userId=${profileUser.id}`}
+              className="flex-1 md:flex-none px-4 py-2 bg-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-700 transition-all shadow-sm flex items-center justify-center gap-2"
+            >
+              <MessageSquare size={12} />
+              {lang === "bn" ? "মেসেজ" : "Message"}
+            </Link>
+            <button
+              onClick={onBlock}
+              className="flex-1 md:flex-none px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-sm flex items-center gap-2"
+            >
+              <ShieldAlert size={14} />
+              {lang === "bn" ? "ব্লক করুন" : "Block"}
+            </button>
+          </>
         )}
       </div>
     </div>

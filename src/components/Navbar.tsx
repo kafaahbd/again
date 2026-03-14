@@ -79,12 +79,8 @@ const Navbar: React.FC = () => {
 
             {/* 2. Right: User Profile & Settings Toggle */}
             <div className="flex items-center gap-2">
-              {/* Desktop Only Toggles */}
-              <div className="hidden md:flex items-center bg-gray-100 dark:bg-gray-900 p-1 rounded-xl mr-2">
-                <LanguageToggle />
-                <ThemeToggle />
-                            {/* Messages & Notifications */}
-              <div className="flex items-center gap-1 md:gap-2 mr-1 md:mr-2">
+              {/* Messages & Notifications */}
+              <div className="flex items-center gap-1 md:gap-2">
                 <Link 
                   href={user ? "/messages" : "/login"} 
                   className="relative p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-xl transition-all"
@@ -163,7 +159,11 @@ const Navbar: React.FC = () => {
                 )}
               </div>
 
-              {/* Profile/Settings Icon for Mobile (Drawer Trigger) */}
+              {/* Desktop Only Toggles */}
+              <div className="hidden md:flex items-center bg-gray-100 dark:bg-gray-900 p-1 rounded-xl mr-2">
+                <LanguageToggle />
+                <ThemeToggle />
+              </div>
               <button 
                 onClick={() => setShowSettings(true)}
                 className="flex items-center gap-2 p-1 md:p-1.5 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200/50 dark:border-gray-800 active:scale-90 transition-all"
@@ -182,7 +182,6 @@ const Navbar: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
         </div>
       </nav>
 
