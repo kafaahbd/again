@@ -51,6 +51,42 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  // Helper function to convert VAPID key
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+      .replace(/\-/g, '+')
+      .replace(/_/g, '/');
+
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
+  const subscribeToPushNotifications = async () => {
+    if (!token || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+    try {
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      
+      const res = await api.get("/push/public-key");
+      const publicVapidKey = res.data.publicKey;
+
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+      });
+
+      await api.post("/push/subscribe", subscription);
+    } catch (error) {
+      console.error('Error subscribing to push notifications:', error);
+    }
+  };
+
   useEffect(() => {
     if (user && token) {
       const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace('/api', '') : 'http://localhost:3000';
@@ -114,42 +150,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setNotifications([]);
     }
   }, [user, token]);
-
-  const subscribeToPushNotifications = async () => {
-    if (!token || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
-
-    try {
-      const registration = await navigator.serviceWorker.register('/sw.js');
-      
-      const res = await api.get("/push/public-key");
-      const publicVapidKey = res.data.publicKey;
-
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
-      });
-
-      await api.post("/push/subscribe", subscription);
-    } catch (error) {
-      console.error('Error subscribing to push notifications:', error);
-    }
-  };
-
-  // Helper function to convert VAPID key
-  const urlBase64ToUint8Array = (base64String: string) => {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding)
-      .replace(/\-/g, '+')
-      .replace(/_/g, '/');
-
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
-  };
 
   const markNotificationAsRead = async (id: string) => {
     if (!token) return;

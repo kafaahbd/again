@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+import { Search, MessageSquare } from "lucide-react";
+import Link from "next/link";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { forumService } from "../services/forumService";
@@ -14,7 +16,7 @@ import FilterModal from "../components/forum/FilterModal";
 import ForumFeed from "../components/forum/ForumFeed";
 
 const Forum: React.FC = () => {
-  const { user } = useAuth();
+  const { user, api } = useAuth();
   const { lang } = useLanguage();
   const navigate = useRouter();
 
@@ -29,11 +31,35 @@ const Forum: React.FC = () => {
   });
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+
+  // User search logic
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (userSearchQuery.trim().length > 1) {
+        setIsSearchingUsers(true);
+        try {
+          const response = await api.get(`/messages/search?q=${userSearchQuery}`);
+          setUserSearchResults(response.data);
+        } catch (err) {
+          console.error("Error searching users:", err);
+        } finally {
+          setIsSearchingUsers(false);
+        }
+      } else {
+        setUserSearchResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [userSearchQuery, api]);
+
   const categories = ["Common", "Science", "Arts", "Commerce"];
   const filterCategories = ["All", ...categories];
   const batches = ["All", "SSC", "HSC"]; // assuming these are the batches
 
-  const fetchPosts = async () => {
+  const fetchPosts = React.useCallback(async () => {
     setLoading(true);
     try {
       const data = await forumService.getPosts(activeCategory, activeBatch);
@@ -43,11 +69,11 @@ const Forum: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeCategory, activeBatch]);
 
   useEffect(() => {
     fetchPosts();
-  }, [activeCategory, activeBatch]);
+  }, [fetchPosts]);
 
   useEffect(() => {
     if (toast) {
@@ -193,6 +219,58 @@ const Forum: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* User Search Bar */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 mb-6 shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <input
+            type="text"
+            placeholder={lang === "bn" ? "ইউজার খুঁজুন (নাম বা ইউজারনেম)..." : "Find users (name or username)..."}
+            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-900 border-none rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 transition-all"
+            value={userSearchQuery}
+            onChange={(e) => setUserSearchQuery(e.target.value)}
+          />
+        </div>
+
+        {userSearchQuery.length > 1 && (
+          <div className="mt-3 space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+            {isSearchingUsers ? (
+              <div className="flex justify-center py-4">
+                <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : userSearchResults.length > 0 ? (
+              userSearchResults.map((u) => (
+                <div key={u.id} className="flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-900 transition-all">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div 
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm"
+                      style={{ backgroundColor: u.profile_color || '#10B981' }}
+                    >
+                      {u.name[0]}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{u.name}</p>
+                      <p className="text-xs text-gray-500 truncate">@{u.username}</p>
+                    </div>
+                  </div>
+                  <Link 
+                    href={`/messages?userId=${u.id}`}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 text-xs font-bold rounded-lg transition-all"
+                  >
+                    <MessageSquare size={14} />
+                    <span>{lang === "bn" ? "মেসেজ" : "Message"}</span>
+                  </Link>
+                </div>
+              ))
+            ) : (
+              <p className="text-center py-4 text-gray-400 text-xs">
+                {lang === "bn" ? "কোনো ইউজার পাওয়া যায়নি" : "No users found"}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       <FilterBar
         activeCategory={activeCategory}
