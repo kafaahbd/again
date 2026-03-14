@@ -8,6 +8,7 @@ import { ThemeProvider } from "../contexts/ThemeContext";
 import { AuthProvider } from "../contexts/AuthContext";
 import { SocketProvider } from "../contexts/SocketContext";
 import ClientLayout from "./ClientLayout";
+import SWUpdate from "../components/SWUpdate";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -17,6 +18,7 @@ export const viewport: Viewport = {
 	width: "device-width",
 	initialScale: 1,
 };
+
 
 // Full SEO Metadata Configuration
 export const metadata: Metadata = {
@@ -69,14 +71,43 @@ export const metadata: Metadata = {
 		icon: [
 			{ url: "https://study.kafaahbd.com/favicon.ico" }, // লিগ্যাসি ব্রাউজারের জন্য
 			{ url: "https://study.kafaahbd.com/favicon.svg", type: "image/svg+xml" }, // আধুনিক ব্রাউজারের জন্য (ভেক্টর)
-			{ url: "https://study.kafaahbd.com/favicon-16.png", sizes: "16x16", type: "image/png" },
-			{ url: "https://study.kafaahbd.com/favicon-32.png", sizes: "32x32", type: "image/png" },
-			{ url: "https://study.kafaahbd.com/favicon-48.png", sizes: "48x48", type: "image/png" },
-			{ url: "https://study.kafaahbd.com/favicon-64.png", sizes: "64x64", type: "image/png" },
-			{ url: "https://study.kafaahbd.com/favicon-96x96.png", sizes: "96x96", type: "image/png" },
-			{ url: "https://study.kafaahbd.com/icon.png", sizes: "512x512", type: "image/png" },
+			{
+				url: "https://study.kafaahbd.com/favicon-16.png",
+				sizes: "16x16",
+				type: "image/png",
+			},
+			{
+				url: "https://study.kafaahbd.com/favicon-32.png",
+				sizes: "32x32",
+				type: "image/png",
+			},
+			{
+				url: "https://study.kafaahbd.com/favicon-48.png",
+				sizes: "48x48",
+				type: "image/png",
+			},
+			{
+				url: "https://study.kafaahbd.com/favicon-64.png",
+				sizes: "64x64",
+				type: "image/png",
+			},
+			{
+				url: "https://study.kafaahbd.com/favicon-96x96.png",
+				sizes: "96x96",
+				type: "image/png",
+			},
+			{
+				url: "https://study.kafaahbd.com/icon.png",
+				sizes: "512x512",
+				type: "image/png",
+			},
 		],
-		apple: [{ url: "https://study.kafaahbd.com/apple-touch-icon.png", sizes: "180x180" }],
+		apple: [
+			{
+				url: "https://study.kafaahbd.com/apple-touch-icon.png",
+				sizes: "180x180",
+			},
+		],
 	},
 	other: {
 		"apple-mobile-web-app-title": "Study Corner",
@@ -116,7 +147,10 @@ export default function RootLayout({
 	return (
 		<html lang="bn">
 			<head>
-				<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+				<link
+					rel="stylesheet"
+					href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+				/>
 				{/* JSON-LD Injection */}
 				<script
 					type="application/ld+json"
@@ -126,6 +160,7 @@ export default function RootLayout({
 				/>
 			</head>
 			<body className={inter.className}>
+				 <SWUpdate />
 				<ThemeProvider>
 					<LanguageProvider>
 						<AuthProvider>
