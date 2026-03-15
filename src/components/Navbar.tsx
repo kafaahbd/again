@@ -24,7 +24,7 @@ import { getProfileColor } from "../typescriptfile/utils";
 import { useSocket } from "../contexts/SocketContext";
 
 const Navbar: React.FC = () => {
-  const { t } = useLanguage();
+  const { t , lang } = useLanguage();
   const pathname = usePathname();
   const { user, confirmLogout } = useAuth();
   const {
