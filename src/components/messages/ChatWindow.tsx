@@ -97,8 +97,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const handleScroll = () => {
     if (scrollContainerRef.current) {
-      const { scrollTop, scrollHeight } = scrollContainerRef.current;
-      if (scrollTop === 0 && hasMore && !isLoadingMore && onLoadMore) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+      if (scrollTop === 0 && scrollHeight > clientHeight && hasMore && !isLoadingMore && onLoadMore) {
         previousScrollHeightRef.current = scrollHeight;
         onLoadMore();
       }

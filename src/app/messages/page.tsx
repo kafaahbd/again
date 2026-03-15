@@ -96,35 +96,41 @@ const MessagesContent = () => {
       if (targetConvId) {
         const targetConv = users.find((u: ChatUser) => u.conversation_id === targetConvId);
         if (targetConv) { 
-          setSelectedUser(targetConv); 
-          setShowMobileList(false); 
+          if (selectedUser?.conversation_id !== targetConv.conversation_id) {
+            setSelectedUser(targetConv); 
+            setShowMobileList(false); 
+          }
         }
       } else if (targetUserId) {
         const targetUser = users.find((u: ChatUser) => u.id === targetUserId);
         if (targetUser) { 
-          setSelectedUser(targetUser); 
-          setShowMobileList(false); 
+          if (selectedUser?.id !== targetUser.id || selectedUser?.conversation_id !== targetUser.conversation_id) {
+            setSelectedUser(targetUser); 
+            setShowMobileList(false); 
+          }
         } else {
           // Create new conversation logic or fetch user from DB
           try {
-            const userRes = await api.get(`/messages/search?q=${targetUserId}`);
-            const foundUser = userRes.data.find((u: any) => u.id === targetUserId);
-            if (foundUser) {
-              const convRes = await api.post("/messages/conversations", { otherUserId: targetUserId });
-              setSelectedUser({
-                id: foundUser.id,
-                conversation_id: convRes.data.id,
-                name: foundUser.name,
-                username: foundUser.username,
-                profile_color: foundUser.profile_color
-              });
-              setShowMobileList(false);
-              // Refresh list to include new conversation
-              fetchUsers();
-            } else {
-              console.warn("User not found for ID:", targetUserId);
-              // Clear search params if user not found to avoid infinite loop or confusion
-              router.replace('/messages', { scroll: false });
+            if (selectedUser?.id !== targetUserId) {
+              const userRes = await api.get(`/messages/search?q=${targetUserId}`);
+              const foundUser = userRes.data.find((u: any) => u.id === targetUserId);
+              if (foundUser) {
+                const convRes = await api.post("/messages/conversations", { otherUserId: targetUserId });
+                setSelectedUser({
+                  id: foundUser.id,
+                  conversation_id: convRes.data.id,
+                  name: foundUser.name,
+                  username: foundUser.username,
+                  profile_color: foundUser.profile_color
+                });
+                setShowMobileList(false);
+                // Refresh list to include new conversation
+                fetchUsers();
+              } else {
+                console.warn("User not found for ID:", targetUserId);
+                // Clear search params if user not found to avoid infinite loop or confusion
+                router.replace('/messages', { scroll: false });
+              }
             }
           } catch (err) {
             console.error("Error handling target user:", err);
@@ -134,7 +140,7 @@ const MessagesContent = () => {
     };
 
     handleUrlTargets();
-  }, [targetUserId, targetConvId, users, loading, api, router, fetchUsers]);
+  }, [targetUserId, targetConvId, users, loading, api, router, fetchUsers, selectedUser?.id, selectedUser?.conversation_id]);
 
   // --- Logic: Messages & Socket ---
   const fetchMessages = useCallback(async (conversationId: string, before?: string) => {
@@ -177,13 +183,19 @@ const MessagesContent = () => {
     }
   };
 
+  const lastFetchedUserIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (selectedUser) {
-      setHasMoreMessages(true);
-      fetchMessages(selectedUser.conversation_id);
+      if (lastFetchedUserIdRef.current !== selectedUser.id) {
+        setHasMoreMessages(true);
+        setMessages([]); // Clear messages when switching users
+        fetchMessages(selectedUser.conversation_id);
+        lastFetchedUserIdRef.current = selectedUser.id;
+      }
       socket?.emit('mark_seen', { conversationId: selectedUser.conversation_id, receiverId: user?.id });
     }
-  }, [selectedUser, socket, user?.id]); // Removed fetchMessages from deps to avoid loop
+  }, [selectedUser, socket, user?.id, fetchMessages]);
 
   useEffect(() => {
     if (!socket) return;
@@ -199,7 +211,17 @@ const MessagesContent = () => {
       fetchUsers();
     });
 
-    socket.on('message_sent', () => {
+    socket.on('message_sent', (message: Message & { tempId?: string }) => {
+      setMessages(prev => {
+        const newMessages = [...prev];
+        const index = newMessages.findIndex(m => m.id === message.tempId || m.id === message.id);
+        if (index !== -1) {
+          newMessages[index] = message;
+        } else if (selectedUser?.conversation_id === message.conversation_id) {
+          newMessages.push(message);
+        }
+        return newMessages;
+      });
       fetchUsers();
     });
 
@@ -288,16 +310,18 @@ const MessagesContent = () => {
       return;
     }
 
+    const tempId = Date.now().toString();
     const messageData = {
       receiverId: selectedUser.id,
       conversationId: selectedUser.conversation_id,
       messageText: newMessage.trim(),
       replyToMessageId: replyingToMessage?.id,
-      imageUrl: imageUrl
+      imageUrl: imageUrl,
+      tempId: tempId
     };
 
     const optimisticMsg: Message = {
-      id: Date.now().toString(),
+      id: tempId,
       conversation_id: selectedUser.conversation_id,
       sender_id: user?.id || '',
       receiver_id: selectedUser.id,
