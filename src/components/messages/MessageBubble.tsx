@@ -155,9 +155,16 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
               <img src={message.image_url} alt="Message attachment" className="max-w-full max-h-[300px] object-contain" />
             </div>
           )}
-          <p className="leading-relaxed break-words">
-            {isDeleted ? "This message was removed" : message.message_text}
-          </p>
+          {message.message_text && (
+            <p className="leading-relaxed break-words">
+              {isDeleted ? "This message was removed" : message.message_text}
+            </p>
+          )}
+          {!message.message_text && isDeleted && (
+            <p className="leading-relaxed break-words italic text-gray-500">
+              This message was removed
+            </p>
+          )}
           
           {/* Reactions */}
           {message.reactions && Object.keys(message.reactions).length > 0 && !isDeleted && (

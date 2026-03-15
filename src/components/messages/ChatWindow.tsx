@@ -66,10 +66,30 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const infoMenuRef = useRef<HTMLDivElement>(null);
 
   const previousScrollHeightRef = useRef<number>(0);
+  const isInitialLoadRef = useRef<boolean>(true);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  useEffect(() => {
+    isInitialLoadRef.current = true;
+  }, [selectedUser?.id]);
+
+  const scrollToBottom = (force = false) => {
+    if (force) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+    
+    if (scrollContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+      // Scroll to bottom if we are already near the bottom (within 150px)
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
+      
+      if (isNearBottom) {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
+    }
   };
+
+  const previousMessagesLengthRef = useRef<number>(messages.length);
 
   useEffect(() => {
     if (!isLoadingMore && scrollContainerRef.current) {
@@ -80,9 +100,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         previousScrollHeightRef.current = 0; // Reset
       } else {
         // Normal scroll to bottom (e.g., new message sent/received)
-        scrollToBottom();
+        const lastMessage = messages[messages.length - 1];
+        const isNewMessage = messages.length > previousMessagesLengthRef.current;
+        const isMyNewMessage = isNewMessage && lastMessage && lastMessage.sender_id === currentUserId;
+        
+        scrollToBottom(isInitialLoadRef.current || isMyNewMessage);
+        if (messages.length > 0) {
+          isInitialLoadRef.current = false;
+        }
       }
     }
+    previousMessagesLengthRef.current = messages.length;
   }, [messages, isTyping, isLoadingMore]);
 
   useEffect(() => {
