@@ -310,33 +310,32 @@ const MessagesContent = () => {
       return;
     }
 
-    const tempId = Date.now().toString();
-    const messageData = {
+    const messagePayload = {
       receiverId: selectedUser.id,
       conversationId: selectedUser.conversation_id,
       messageText: newMessage.trim(),
       replyToMessageId: replyingToMessage?.id,
-      imageUrl: imageUrl,
-      tempId: tempId
+      imageUrl: imageUrl
     };
 
-    const optimisticMsg: Message = {
-      id: tempId,
-      conversation_id: selectedUser.conversation_id,
-      sender_id: user?.id || '',
-      receiver_id: selectedUser.id,
-      message_text: newMessage.trim(),
-      status: 'sent',
-      created_at: new Date().toISOString(),
-      reply_to_message_id: replyingToMessage?.id,
-      image_url: imageUrl
-    };
+    try {
+      // 1. Save message to DB via POST request
+      const res = await api.post('/messages', messagePayload);
+      const savedMessage = res.data;
 
-    setMessages(prev => [...prev, optimisticMsg]);
-    setNewMessage("");
-    setReplyingToMessage(null);
-    socket.emit('send_message', messageData);
-    socket.emit('typing_end', { receiverId: selectedUser.id });
+      // 2. Update UI with the saved message
+      setMessages(prev => [...prev, savedMessage]);
+      setNewMessage("");
+      setReplyingToMessage(null);
+      fetchUsers(); // Update the conversation list with new message
+
+      // 3. Emit via Socket.io for real-time delivery
+      socket.emit('send_message', savedMessage);
+      socket.emit('typing_end', { receiverId: selectedUser.id });
+    } catch (error) {
+      console.error("Error sending message:", error);
+      alert(lang === "bn" ? "মেসেজ পাঠাতে সমস্যা হয়েছে।" : "Failed to send message.");
+    }
   };
 
   const handleEditMessage = (message: Message) => {
