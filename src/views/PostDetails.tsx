@@ -150,6 +150,12 @@ const PostDetails: React.FC = () => {
             </div>
           </div>
           <TextExpander text={post.content} limit={300} className="text-slate-700 dark:text-slate-300 text-[15px] md:text-lg leading-relaxed whitespace-pre-wrap font-medium" />
+          
+          {post.image_url && (
+            <div className="mt-6 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800">
+              <img src={post.image_url} alt="Post attachment" className="w-full max-h-[600px] object-contain bg-slate-50 dark:bg-slate-950" />
+            </div>
+          )}
         </motion.div>
 
         {/* Discussions Area */}

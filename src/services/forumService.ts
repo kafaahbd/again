@@ -24,10 +24,10 @@ export const forumService = {
   /**
    * ২. নতুন পোস্ট তৈরি করা
    */
-  createPost: async (content: string, category: string, batch: string) => {
+  createPost: async (content: string, category: string, batch: string, image_url?: string) => {
     const response = await api.post(
       `${API_URL}/posts`,
-      { content, category, batch }
+      { content, category, batch, image_url }
     );
     return response.data;
   },

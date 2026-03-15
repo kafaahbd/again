@@ -9,10 +9,12 @@ import { forumService } from "../services/forumService";
 import SEO from "../components/SEO";
 import { 
     Send, Layers, GraduationCap, ChevronDown, Check, ArrowLeft, Loader2, Sparkles,
-    ShieldAlert
+    ShieldAlert, Image as ImageIcon, X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getProfileColor } from "../typescriptfile/utils";
+import { storage } from "../firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const CreatePost: React.FC = () => {
     const { user } = useAuth();
@@ -28,6 +30,9 @@ const CreatePost: React.FC = () => {
     const [batch, setBatch] = useState<string>("SSC");
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(isEditing);
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [uploadingImage, setUploadingImage] = useState(false);
     
     const [isCatOpen, setIsCatOpen] = useState(false);
     const [isBatchOpen, setIsBatchOpen] = useState(false);
@@ -67,22 +72,60 @@ const CreatePost: React.FC = () => {
         }
     }, [toast]);
 
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+            setToast({ msg: "Image size must be less than 5MB", type: "error" });
+            return;
+        }
+
+        if (!file.type.startsWith('image/')) {
+            setToast({ msg: "Only image files are allowed", type: "error" });
+            return;
+        }
+
+        setImageFile(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const removeImage = () => {
+        setImageFile(null);
+        setImagePreview(null);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user || !content.trim()) return;
+        if (!user || (!content.trim() && !imageFile)) return;
 
         setLoading(true);
         try {
+            let imageUrl: string | undefined = undefined;
+            if (imageFile) {
+                setUploadingImage(true);
+                const storageRef = ref(storage, `posts/${user.id}/${Date.now()}_${imageFile.name}`);
+                await uploadBytes(storageRef, imageFile);
+                imageUrl = await getDownloadURL(storageRef);
+                setUploadingImage(false);
+            }
+
             if (isEditing && postId) {
+                // Assuming updatePost doesn't handle image updates yet, we'll just pass the existing params
                 await forumService.updatePost(postId, content, category, batch);
                 setToast({ msg: lang === "bn" ? "পোস্ট আপডেট হয়েছে!" : "Post updated!", type: "success" });
             } else {
-                await forumService.createPost(content, category, batch);
+                await forumService.createPost(content, category, batch, imageUrl || undefined);
                 setToast({ msg: lang === "bn" ? "পোস্ট শেয়ার হয়েছে!" : "Post shared!", type: "success" });
             }
             setTimeout(() => navigate.push("/forum"), 1500);
         } catch {
             setToast({ msg: lang === "bn" ? "ব্যর্থ হয়েছে" : "Failed", type: "error" });
+            setUploadingImage(false);
         } finally {
             setLoading(false);
         }
@@ -120,10 +163,10 @@ const CreatePost: React.FC = () => {
 
                     <button 
                         onClick={handleSubmit}
-                        disabled={loading || !content.trim()}
+                        disabled={loading || uploadingImage || (!content.trim() && !imageFile)}
                         className="relative group overflow-hidden bg-emerald-600 disabled:opacity-50 text-white px-6 py-2.5 rounded-2xl text-xs font-black shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all active:scale-95"
                     >
-                        {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={14} />}
+                        {(loading || uploadingImage) ? <Loader2 size={16} className="animate-spin" /> : <Send size={14} />}
                         {lang === "bn" ? (isEditing ? "আপডেট" : "শেয়ার") : (isEditing ? "Update" : "Share")}
                     </button>
                 </div>
@@ -210,14 +253,39 @@ const CreatePost: React.FC = () => {
                 </div>
 
                 {/* Main Content Area */}
-                <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-6 lg:p-8 border border-gray-100 dark:border-gray-800 shadow-sm min-h-[400px]">
+                <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-6 lg:p-8 border border-gray-100 dark:border-gray-800 shadow-sm min-h-[400px] flex flex-col">
                     <textarea
                         autoFocus
-                        className="w-full bg-transparent border-none text-lg md:text-2xl outline-none resize-none dark:text-gray-100 placeholder:text-gray-300 dark:placeholder:text-gray-700 font-medium leading-relaxed min-h-[350px]"
+                        className="w-full bg-transparent border-none text-lg md:text-2xl outline-none resize-none dark:text-gray-100 placeholder:text-gray-300 dark:placeholder:text-gray-700 font-medium leading-relaxed flex-grow min-h-[200px]"
                         placeholder={lang === "bn" ? "আপনার মনে কি আছে? ইসলাম ও শিক্ষা বিষয়ে কিছু শেয়ার করুন..." : "What's on your mind? Share something about Islam or Education..."}
                         value={content}
                         onChange={(e) => setContent(e.target.value)}
                     />
+                    
+                    {imagePreview && (
+                        <div className="relative mt-4 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800">
+                            <img src={imagePreview} alt="Preview" className="w-full max-h-[400px] object-contain bg-gray-50 dark:bg-gray-950" />
+                            <button 
+                                onClick={removeImage}
+                                className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-colors"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                    )}
+                    
+                    <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex items-center">
+                        <label className="cursor-pointer p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors flex items-center gap-2 text-emerald-600 font-bold text-sm">
+                            <ImageIcon size={20} />
+                            <span>Add Image</span>
+                            <input 
+                                type="file" 
+                                accept="image/jpeg, image/png, image/webp" 
+                                className="hidden" 
+                                onChange={handleImageChange}
+                            />
+                        </label>
+                    </div>
                 </div>
                 
                 <p className="mt-6 text-center text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">

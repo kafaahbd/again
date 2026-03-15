@@ -22,5 +22,6 @@ export interface Message {
   deleted_for_everyone?: boolean;
   deleted_by?: string[];
   reply_to_message_id?: string;
+  image_url?: string;
   reactions?: Record<string, string>; // userId -> reaction (e.g., '👍')
 }

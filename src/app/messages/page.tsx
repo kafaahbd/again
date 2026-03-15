@@ -268,9 +268,9 @@ const MessagesContent = () => {
   }, [socket, selectedUser, user, api, fetchUsers, refreshUnreadCounts]);
 
   // --- Handlers ---
-  const handleSendMessage = async (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent, imageUrl?: string) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedUser || !socket) return;
+    if ((!newMessage.trim() && !imageUrl) || !selectedUser || !socket) return;
 
     if (editingMessage) {
       // Handle Edit
@@ -292,7 +292,8 @@ const MessagesContent = () => {
       receiverId: selectedUser.id,
       conversationId: selectedUser.conversation_id,
       messageText: newMessage.trim(),
-      replyToMessageId: replyingToMessage?.id
+      replyToMessageId: replyingToMessage?.id,
+      imageUrl: imageUrl
     };
 
     const optimisticMsg: Message = {
@@ -303,7 +304,8 @@ const MessagesContent = () => {
       message_text: newMessage.trim(),
       status: 'sent',
       created_at: new Date().toISOString(),
-      reply_to_message_id: replyingToMessage?.id
+      reply_to_message_id: replyingToMessage?.id,
+      image_url: imageUrl
     };
 
     setMessages(prev => [...prev, optimisticMsg]);

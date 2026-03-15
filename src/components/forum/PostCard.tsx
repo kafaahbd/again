@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { MessageSquare, Heart, Share2, MoreHorizontal } from "lucide-react";
@@ -19,7 +19,7 @@ interface PostCardProps {
   lang: string;
 }
 
-const PostCard = ({
+const PostCard: React.FC<PostCardProps> = ({
   post,
   currentUserId,
   onToggleReact,
@@ -117,6 +117,12 @@ const PostCard = ({
         limit={150}
         className="text-gray-700 dark:text-gray-300 text-sm md:text-[16px] leading-relaxed mb-4 md:mb-7 font-medium whitespace-pre-wrap"
       />
+
+      {post.image_url && (
+        <div className="mb-4 md:mb-7 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800">
+          <img src={post.image_url} alt="Post attachment" className="w-full max-h-[500px] object-contain bg-gray-50 dark:bg-gray-950" />
+        </div>
+      )}
 
       <div className="flex items-center gap-6 md:gap-8 pt-3 md:pt-6 border-t border-gray-50 dark:border-gray-700/30">
         <button
