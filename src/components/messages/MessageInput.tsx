@@ -4,8 +4,7 @@ import { Send, Smile, X, Edit2, Reply, Image as ImageIcon, Loader2 } from "lucid
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import "./haram-emojis.css";
 import { Message } from "../../types/messages";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { app } from "../../firebase";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface MessageInputProps {
   newMessage: string;
@@ -30,6 +29,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   onCancelReply,
   onCancelEdit
 }) => {
+  const { api } = useAuth();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
@@ -97,10 +97,15 @@ const MessageInput: React.FC<MessageInputProps> = ({
     if (imageFile) {
       setIsUploading(true);
       try {
-        const storage = getStorage(app);
-        const storageRef = ref(storage, `messages/${Date.now()}_${imageFile.name}`);
-        await uploadBytes(storageRef, imageFile);
-        imageUrl = await getDownloadURL(storageRef);
+        const formData = new FormData();
+        formData.append('image', imageFile);
+
+        const response = await api.post('/upload', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        imageUrl = response.data.imageUrl;
       } catch (error) {
         console.error("Error uploading image:", error);
         alert(lang === "bn" ? "ছবি আপলোড করতে সমস্যা হয়েছে।" : "Failed to upload image.");

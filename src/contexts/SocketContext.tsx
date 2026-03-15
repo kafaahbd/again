@@ -100,12 +100,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
 			const newSocket = io(SOCKET_URL, {
 				withCredentials: true,
-				transports: ["polling","websocket" ], // fallback হিসেবে polling রাখা ভালো
+				transports: ["polling", "websocket"], // fallback হিসেবে polling রাখা ভালো
 			});
 			setSocket(newSocket);
 
 			newSocket.on("connect", () => {
 				newSocket.emit("join", user.id);
+			});
+
+			newSocket.on("initial_online_users", (userIds: string[]) => {
+				setOnlineUsers(new Set(userIds));
 			});
 
 			newSocket.on(

@@ -276,6 +276,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             }
           }
 
+          let showTimestampDefault = true;
+          if (i > 0) {
+            const prevMsg = filteredMessages[i - 1];
+            if (prevMsg.sender_id === msg.sender_id) {
+              const timeDiff = new Date(msg.created_at).getTime() - new Date(prevMsg.created_at).getTime();
+              if (timeDiff < 5 * 60 * 1000) { // 5 minutes
+                showTimestampDefault = false;
+              }
+            }
+          }
+
           return (
             <React.Fragment key={msg.id}>
               {showDateSeparator && (
@@ -296,6 +307,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                 onReply={onReplyMessage}
                 onReact={onReactMessage}
                 repliedMessage={msg.reply_to_message_id ? filteredMessages.find(m => m.id === msg.reply_to_message_id) : undefined}
+                showTimestampDefault={showTimestampDefault}
               />
             </React.Fragment>
           );
